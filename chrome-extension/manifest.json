@@ -1,0 +1,15 @@
+{
+    "manifest_version": 3,
+    "name": "Hate Speech Filter",
+    "version": "1.0",
+    "description": "Detects and blurs hate speech on social media.",
+    "permissions": ["activeTab", "scripting"],
+    "host_permissions": ["http://127.0.0.1:8000/"],
+    "content_scripts": [
+      {
+        "matches": ["*://*/*"],
+        "js": ["content.js"]
+      }
+    ]
+  }
+  
