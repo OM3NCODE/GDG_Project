@@ -16,7 +16,7 @@ genai.configure(api_key=API_KEY)
 
 # ✅ **Initialize ChromaDB**
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
-collection = chroma_client.get_or_create_collection(
+HatespeechDB = chroma_client.get_or_create_collection(
     name="hate_speech_db",
     metadata={"hnsw:space": "cosine"}
 )
@@ -36,7 +36,7 @@ embedding_model = "models/text-embedding-004"
 logging.getLogger("chromadb").setLevel(logging.ERROR)
 
 # ✅ **Generate & Store Embeddings in ChromaDB**
-if collection.count() == 0:
+if HatespeechDB.count() == 0:
     print("⚡ Generating and storing embeddings for the first time...")
 
     for index, row in df.iterrows():
@@ -49,7 +49,7 @@ if collection.count() == 0:
         if len(embedding) != 768:
             raise ValueError(f"❌ Expected embedding dimension 768, but got {len(embedding)}")
 
-        collection.add(
+        HatespeechDB.add(
             ids=[str(index)],
             documents=[row["Text"]],
             embeddings=[embedding],  # Ensure it's a list
@@ -74,7 +74,7 @@ def classify_text(input_text):
     print(f"🔍 Query Embedding Dimension: {len(input_embedding)}")
 
     # ✅ **Retrieve Similar Texts from ChromaDB**
-    results = collection.query(
+    results = HatespeechDB.query(
         query_embeddings=[input_embedding],  # Use query_embeddings, not query_texts
         n_results=2
     )
@@ -99,8 +99,8 @@ def classify_text(input_text):
 #Use the below code to test if the model api is working properly 
 '''# 🎯 **Test the Classification**
 if __name__ == "__main__":
-    test_text = "Life is good together"
+    test_text = "Minority Sucks dick they should not exsist"
     classification = classify_text(test_text)
-    print(f"📝 Classification Result: {classification}")'''
+    print(f"📝 Classification Result: {classification}")
 
-# API part here mostly 
+# API part here mostly '''
