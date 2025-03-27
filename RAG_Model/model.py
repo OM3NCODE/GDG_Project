@@ -1,58 +1,106 @@
+import os
+import pandas as pd
 import google.generativeai as genai
-from difflib import get_close_matches
+import chromadb
+import logging
+from dotenv import load_dotenv
 
-# 1️⃣ Set Up Google AI API Key
-genai.configure(api_key="AIzaSyDXPl2SDEutTgAB4A2Wfwf_DlIzdFRLHv8")
+# ✅ **Load API Key from Environment Variable**
+load_dotenv()
+API_KEY = os.getenv('GOOGLE_API_KEY')
 
-# 2️⃣ Sample Hate Speech Data (Instead of JSON)
-sample_data = [
-    {"text": "XYZ group should not exist.", "label": "Hate Speech"},
-    {"text": "All people deserve equal rights.", "label": "Hate Speech"},
-    {"text": "People from ABC group are not human.", "label": "Hate Speech"},
-    {"text": "The government should protect minorities.", "label": "Hate Speech"},
-    {"text": "Some communities are a threat to society.", "label": "Moderate"}
-]
+if not API_KEY:
+    raise ValueError("❌ GOOGLE_API_KEY not found in environment variables!")
 
-# 3️⃣ Function to Retrieve Similar Texts
-def retrieve_similar_texts(query, data, n=3):
-    """Finds most similar texts to the query using simple text matching."""
-    texts = [entry["text"] for entry in data]
-    return get_close_matches(query, texts, n=n, cutoff=0.5)
+genai.configure(api_key=API_KEY)
 
-# 4️⃣ Classification Function Using Google AI API
-def classify_text_with_api(text):
-    """Uses Google AI API (Gemma) to classify text with context from similar data."""
+# ✅ **Initialize ChromaDB**
+chroma_client = chromadb.PersistentClient(path="./chroma_db")
+collection = chroma_client.get_or_create_collection(
+    name="hate_speech_db",
+    metadata={"hnsw:space": "cosine"}
+)
+
+# ✅ **Load CSV Data**
+csv_file = "Dataset/hate_speech_text_updated.csv"  # Adjust path as needed
+
+if not os.path.exists(csv_file):
+    raise FileNotFoundError(f"❌ CSV file not found at: {csv_file}")
+
+df = pd.read_csv(csv_file)
+df.dropna(subset=["Text"], inplace=True)
+print(f"✅ Loaded {len(df)} records from CSV!")
+
+# ✅ **Configure Embeddings**
+embedding_model = "models/text-embedding-004"
+logging.getLogger("chromadb").setLevel(logging.ERROR)
+
+# ✅ **Generate & Store Embeddings in ChromaDB**
+if collection.count() == 0:
+    print("⚡ Generating and storing embeddings for the first time...")
+
+    for index, row in df.iterrows():
+        embedding_response = genai.embed_content(
+            model=embedding_model, 
+            content=row["Text"]
+        )
+        embedding = embedding_response["embedding"]
+
+        if len(embedding) != 768:
+            raise ValueError(f"❌ Expected embedding dimension 768, but got {len(embedding)}")
+
+        collection.add(
+            ids=[str(index)],
+            documents=[row["Text"]],
+            embeddings=[embedding],  # Ensure it's a list
+            metadatas=[{"label": row["Label"], "category": row["Category"]}]
+        )
+
+    print("✅ Embeddings stored in ChromaDB!")
+else:
+    print("✅ Embeddings already exist in ChromaDB, skipping computation.")
+
+# 🚀 **RAG Function: Retrieve & Classify Text**
+def classify_text(input_text):
+    """Retrieve relevant texts from ChromaDB and classify input using Gemini."""
     
-    # Retrieve Similar Texts
-    retrieved_texts = retrieve_similar_texts(text, sample_data)
-    context = " ".join(retrieved_texts) if retrieved_texts else "No relevant examples found."
+    # ✅ **Generate Embedding for Query**
+    embedding_response = genai.embed_content(model=embedding_model, content=input_text)
+    input_embedding = embedding_response["embedding"]
 
-    # Create Prompt
+    if len(input_embedding) != 768:
+        raise ValueError(f"❌ Expected query embedding dimension 768, but got {len(input_embedding)}")
+
+    print(f"🔍 Query Embedding Dimension: {len(input_embedding)}")
+
+    # ✅ **Retrieve Similar Texts from ChromaDB**
+    results = collection.query(
+        query_embeddings=[input_embedding],  # Use query_embeddings, not query_texts
+        n_results=2
+    )
+
+    retrieved_texts = results["documents"][0] if results["documents"] else []
+    print(f"🔍 Retrieved Texts: {retrieved_texts}")
+
+    # ✅ **Prompt for Classification**
     prompt = f"""
-    Context: {context}
-    User Input: {text}
-
-    Task: Based on the context and user input, classify the text as:
-    - "Safe"
-    - "Moderate"
-    - "Hate Speech"
-
-    Output only the classification.
+    Given the retrieved examples: {retrieved_texts}
+    Classify the following text as 'Hate Speech', 'Moderate', or 'Safe':  
+    "{input_text}"
+    Respond with only one label.
     """
 
-    # Send to Google AI API
     model = genai.GenerativeModel("gemini-1.5-pro")
     response = model.generate_content(prompt)
     
-    return {
-        "classification": response.text.strip(),
-        "retrieved_examples": retrieved_texts
-    }
+    return response.text.strip()
 
-# 5️⃣ **Testing with Sample Data**
+
+#Use the below code to test if the model api is working properly 
+'''# 🎯 **Test the Classification**
 if __name__ == "__main__":
-    test_text = "XYZ group is should not exist."
-    result = classify_text_with_api(test_text)
-    
-    print("\n🔍 **Classification Result**:")
-    print(result)
+    test_text = "Life is good together"
+    classification = classify_text(test_text)
+    print(f"📝 Classification Result: {classification}")'''
+
+# API part here mostly 
