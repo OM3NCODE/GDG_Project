@@ -1,63 +1,47 @@
-// Enhanced content script with multiple scraping strategies
-
 function scrapeParagraphs() {
-  // Multiple scraping strategies
+  // Specific strategies for different platforms
   const scrapingStrategies = [
-    // Standard text extraction methods
-    () => Array.from(document.querySelectorAll('p, article, .content'))
-      .map(el => el.innerText.trim())
-      .filter(text => text.length > 50),
-
-    // Wikipedia-specific strategy
-    () => {
-      if (window.location.hostname.includes('wikipedia.org')) {
-        const contentDiv = document.querySelector('#mw-content-text');
-        if (contentDiv) {
-          return Array.from(contentDiv.querySelectorAll('p'))
-            .map(el => el.innerText.trim())
-            .filter(text => text.length > 50);
-        }
-      }
-      return [];
-    },
-
-    // Reddit-specific strategy
+    // Reddit post and comment scraping
     () => {
       if (window.location.hostname.includes('reddit.com')) {
-        const comments = Array.from(document.querySelectorAll('.Comment'))
+        // Select post titles and main text content
+        const postTitles = Array.from(document.querySelectorAll('.things h3, .title'))
+          .map(el => el.innerText.trim());
+        
+        // Select main post content and comments
+        const postContent = Array.from(document.querySelectorAll('.usertext-body, .md, .Comment'))
           .map(el => el.innerText.trim())
-          .filter(text => text.length > 50);
+          .filter(text => text.length > 30);
         
-        const postContent = document.querySelector('.Post')?.innerText.trim() || '';
-        
-        return postContent.length > 50 ? [postContent, ...comments] : comments;
+        return [...postTitles, ...postContent];
       }
       return [];
     },
 
-    // Fallback deep text extraction
+    // Twitter/X specific scraping
     () => {
-      const textNodes = [];
-      
-      function walkNodes(node) {
-        if (node.nodeType === Node.TEXT_NODE) {
-          const text = node.textContent.trim();
-          if (text.length > 50 && !textNodes.includes(text)) {
-            textNodes.push(text);
-          }
-        }
+      if (window.location.hostname.includes('twitter.com') || window.location.hostname.includes('x.com')) {
+        // Select tweet text and usernames
+        const tweets = Array.from(document.querySelectorAll('div[data-testid="tweet"] p, article p'))
+          .map(el => el.innerText.trim())
+          .filter(text => text.length > 20);
         
-        for (let child of node.childNodes) {
-          walkNodes(child);
-        }
+        return tweets;
       }
+      return [];
+    },
+
+    // Fallback general text extraction
+    () => {
+      const textElements = Array.from(document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, article, .content'))
+        .map(el => el.innerText.trim())
+        .filter(text => text.length > 30);
       
-      walkNodes(document.body);
-      return textNodes;
+      return textElements;
     }
   ];
 
-  // Combine results from all strategies
+  // Combine and deduplicate results
   const paragraphs = scrapingStrategies.reduce((acc, strategy) => {
     try {
       const result = strategy();
@@ -68,17 +52,16 @@ function scrapeParagraphs() {
     }
   }, []);
 
-  // Remove duplicates and filter
+  // Remove duplicates and limit results
   return [...new Set(paragraphs)]
-    .filter(text => text.length > 50)
-    .slice(0, 50); // Limit to 50 paragraphs to prevent overwhelming results
+    .filter(text => text.length > 30)
+    .slice(0, 50); // Limit to 50 items
 }
 
-// Robust message listener
+// Message listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'scrape') {
     try {
-      // Attempt to scrape with multiple strategies
       const paragraphs = scrapeParagraphs();
       
       sendResponse({ 
@@ -88,7 +71,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Comprehensive scraping error:', error);
+      console.error('Scraping error:', error);
       
       sendResponse({ 
         error: error.message,
@@ -97,9 +80,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     }
     
-    return true; // Allow asynchronous response
+    return true;
   }
 });
 
-// Diagnostic logging
-console.log('Advanced Web Content Scraper initialized');
+console.log('Content Scraper Initialized');
