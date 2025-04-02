@@ -4,41 +4,92 @@
   <title>Web Content Classifier</title>
   <style>
     body {
+      font-family: Arial, sans-serif;
       width: 350px;
       padding: 10px;
-      font-family: Arial, sans-serif;
     }
-    #status {
-      margin: 10px 0;
-      color: #666;
+    
+    h1 {
+      font-size: 18px;
+      margin-bottom: 15px;
     }
-    #results {
-      max-height: 300px;
-      overflow-y: auto;
-      border: 1px solid #ddd;
-      padding: 10px;
-      margin-top: 10px;
-    }
-    .result-item {
-      border-bottom: 1px solid #eee;
-      padding: 10px 0;
-    }
-    #scrapeButton {
-      width: 100%;
-      padding: 10px;
-      background-color: #4CAF50;
+    
+    button {
+      background-color: #4285f4;
       color: white;
       border: none;
+      padding: 8px 16px;
+      font-size: 14px;
+      border-radius: 4px;
       cursor: pointer;
+      margin-bottom: 10px;
     }
+    
+    button:hover {
+      background-color: #3367d6;
+    }
+    
+    #status {
+      margin: 10px 0;
+      font-style: italic;
+      color: #555;
+    }
+    
+    #results {
+      margin-top: 15px;
+      max-height: 300px;
+      overflow-y: auto;
+      border-top: 1px solid #ddd;
+      padding-top: 10px;
+    }
+    
+    .result-item {
+      margin-bottom: 10px;
+      padding: 8px;
+      background-color: #f7f7f7;
+      border-radius: 4px;
+    }
+    
     details {
-      margin-top: 5px;
+      margin-top: 8px;
+    }
+    
+    summary {
+      cursor: pointer;
+      color: #4285f4;
+      font-weight: bold;
+    }
+    
+    .rag-results {
+      margin-top: 8px;
+      padding: 8px;
+      background-color: #f0f8ff;
+      border-left: 4px solid #4285f4;
+      font-size: 12px;
+    }
+    
+    .rag-results h3 {
+      margin-top: 0;
+      font-size: 14px;
+    }
+    
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-family: monospace;
+      font-size: 12px;
+      background-color: #f5f5f5;
+      padding: 8px;
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
     }
   </style>
 </head>
 <body>
-  <button id="scrapeButton">Scrape and Classify</button>
-  <div id="status">Ready to scrape</div>
+  <h1>Web Content Classifier</h1>
+  <button id="scrapeButton">Scrape & Process Content</button>
+  <div id="status">Ready to scrape and process with RAG model</div>
   <div id="results"></div>
   <script src="popup.js"></script>
 </body>

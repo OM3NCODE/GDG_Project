@@ -81,7 +81,7 @@ def classify_text(input_text):
 
     retrieved_texts = results["documents"][0] if results["documents"] else []
     print(f"🔍 Retrieved Texts: {retrieved_texts}")
-
+    print(f"Input Text {input_text}")
     # ✅ **Prompt for Classification**
     prompt = f"""
     Given the retrieved examples: {retrieved_texts}
@@ -96,8 +96,9 @@ def classify_text(input_text):
     return response.text.strip()
 
 
+'''
 #Use the below code to test if the model api is working properly 
-'''# 🎯 **Test the Classification**
+# 🎯 **Test the Classification**
 if __name__ == "__main__":
     test_text = "Minority Sucks dick they should not exsist"
     classification = classify_text(test_text)
