@@ -1,28 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Web Content Scraper</title>
+  <title>Web Content Classifier</title>
   <style>
-    body { 
-      width: 350px; 
-      padding: 10px; 
-      font-family: Arial, sans-serif; 
-    }
-    button { 
-      width: 100%; 
-      padding: 10px; 
-      margin-top: 10px; 
+    body {
+      width: 350px;
+      padding: 10px;
+      font-family: Arial, sans-serif;
     }
     #status {
-      margin-top: 10px;
+      margin: 10px 0;
       color: #666;
+    }
+    #results {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    .result-item {
+      border-bottom: 1px solid #eee;
+      padding: 10px 0;
+    }
+    #scrapeButton {
+      width: 100%;
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    details {
+      margin-top: 5px;
     }
   </style>
 </head>
 <body>
-  <h2>Web Content Scraper</h2>
-  <button id="scrapeButton">Scrape Page Content</button>
-  <div id="status"></div>
+  <button id="scrapeButton">Scrape and Classify</button>
+  <div id="status">Ready to scrape</div>
+  <div id="results"></div>
   <script src="popup.js"></script>
 </body>
 </html>
