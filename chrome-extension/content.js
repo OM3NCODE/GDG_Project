@@ -1,102 +1,168 @@
-// Enhanced content script with multiple scraping strategies
-function scrapeParagraphs() {
-  // Multiple scraping strategies
-  const scrapingStrategies = [
-    // Standard text extraction methods
-    () => Array.from(document.querySelectorAll('p, article, .content'))
-      .map(el => el.innerText.trim())
-      .filter(text => text.length > 50),
-    // Wikipedia-specific strategy
-    () => {
-      if (window.location.hostname.includes('wikipedia.org')) {
-        const contentDiv = document.querySelector('#mw-content-text');
-        if (contentDiv) {
-          return Array.from(contentDiv.querySelectorAll('p'))
-            .map(el => el.innerText.trim())
-            .filter(text => text.length > 50);
-        }
-      }
-      return [];
-    },
-    // Reddit-specific strategy
-    () => {
-      if (window.location.hostname.includes('reddit.com')) {
-        const comments = Array.from(document.querySelectorAll('.Comment'))
-          .map(el => el.innerText.trim())
-          .filter(text => text.length > 50);
-        
-        const postContent = document.querySelector('.Post')?.innerText.trim() || '';
-        
-        return postContent.length > 50 ? [postContent, ...comments] : comments;
-      }
-      return [];
-    },
-    // Fallback deep text extraction
-    () => {
-      const textNodes = [];
-      
-      function walkNodes(node) {
-        if (node.nodeType === Node.TEXT_NODE) {
-          const text = node.textContent.trim();
-          if (text.length > 50 && !textNodes.includes(text)) {
-            textNodes.push(text);
-          }
-        }
-        
-        for (let child of node.childNodes) {
-          walkNodes(child);
-        }
-      }
-      
-      walkNodes(document.body);
-      return textNodes;
-    }
-  ];
+function scrapeTestingData() {
+  const url = window.location.href;
+  const hostname = window.location.hostname;
   
-  // Combine results from all strategies
-  const paragraphs = scrapingStrategies.reduce((acc, strategy) => {
-    try {
-      const result = strategy();
-      return [...acc, ...result];
-    } catch (error) {
-      console.error('Scraping strategy failed:', error);
-      return acc;
-    }
-  }, []);
+  // Initialize results object
+  const results = {
+    url: url,
+    timestamp: new Date().toISOString(),
+    sourceType: determineSourceType(hostname),
+    mainContent: {
+      text: '',
+      type: 'post'
+    },
+    comments: []
+  };
   
-  // Remove duplicates and filter
-  return [...new Set(paragraphs)]
-    .filter(text => text.length > 50)
-    .slice(0, 50); // Limit to 50 paragraphs to prevent overwhelming results
+  // Site-specific extraction strategies
+  if (hostname.includes('reddit.com')) {
+    const redditData = scrapeRedditContent();
+    results.mainContent.text = redditData.postContent;
+    results.comments = redditData.comments.map(comment => ({ text: comment, type: 'comment' }));
+  } else if (hostname.includes('youtube.com')) {
+    const youtubeData = scrapeYouTubeComments();
+    results.mainContent.text = `${youtubeData.videoTitle}\n\n${youtubeData.videoDescription}`.trim();
+    results.comments = youtubeData.comments.map(comment => ({ text: comment, type: 'comment' }));
+  } else if (hostname.includes('twitter.com') || hostname.includes('x.com')) {
+    const twitterData = scrapeTwitterContent();
+    results.mainContent.text = twitterData.mainTweet;
+    results.comments = twitterData.replies.map(reply => ({ text: reply, type: 'comment' }));
+  } else if (hostname.includes('instagram.com')) {
+    const instagramData = scrapeInstagramContent();
+    results.mainContent.text = instagramData.postCaption;
+    results.comments = instagramData.comments.map(comment => ({ text: comment, type: 'comment' }));
+  } else {
+    const genericData = scrapeGenericContent();
+    results.mainContent.text = `${genericData.title ? genericData.title + '\n\n' : ''}${genericData.mainContent}`.trim();
+    results.comments = genericData.comments.map(comment => ({ text: comment, type: 'comment' }));
+  }
+  
+  // Remove empty main content if there's nothing there
+  if (!results.mainContent.text) {
+    results.mainContent = null;
+  }
+  
+  return results;
 }
 
-// Robust message listener
+// The original scraping functions remain the same
+function scrapeRedditContent() {
+  const results = {
+    postContent: '',
+    comments: []
+  };
+  
+  // Extract post content
+  const postContentElement = document.querySelector('.Post [data-test-id="post-content"]');
+  if (postContentElement) {
+    // Look for the main text in the post
+    const textElements = postContentElement.querySelectorAll('p, h1, h2, h3, h4, h5, h6');
+    if (textElements.length > 0) {
+      results.postContent = Array.from(textElements)
+        .map(el => el.innerText.trim())
+        .join('\n\n');
+    }
+  }
+  
+  // Extract comments - target only the text content of comments, not usernames or metadata
+  const commentElements = document.querySelectorAll('.Comment');
+  commentElements.forEach(comment => {
+    // First child after the metadata is typically the comment text
+    const commentBodyElement = comment.querySelector('[data-testid="comment"]');
+    if (commentBodyElement) {
+      const commentText = commentBodyElement.innerText.trim();
+      if (commentText.length > 10) { // Minimum length to filter out noise
+        results.comments.push(commentText);
+      }
+    }
+  });
+  
+  return results;
+}
+
+// Other scraping functions remain the same...
+// [scrapeYouTubeComments, scrapeTwitterContent, scrapeInstagramContent, scrapeGenericContent]
+
+// Determine source type
+function determineSourceType(hostname) {
+  if (hostname.includes('reddit.com')) return 'reddit';
+  if (hostname.includes('youtube.com')) return 'youtube';
+  if (hostname.includes('twitter.com') || hostname.includes('x.com')) return 'twitter';
+  if (hostname.includes('instagram.com')) return 'instagram';
+  return 'generic';
+}
+
+// Message listener to start scraping
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'scrape') {
+  if (request.action === 'scrapeTestingData') {
     try {
-      // Attempt to scrape with multiple strategies
-      const paragraphs = scrapeParagraphs();
+      const testData = scrapeTestingData();
       
-      sendResponse({ 
-        paragraphs: paragraphs,
+      // Prepare data for export
+      const exportableData = prepareForClassification(testData);
+      
+      sendResponse({
         success: true,
-        url: window.location.href,
-        timestamp: new Date().toISOString()
+        testData: testData,
+        exportableData: exportableData
       });
     } catch (error) {
-      console.error('Comprehensive scraping error:', error);
-      
-      sendResponse({ 
-        error: error.message,
+      console.error('Testing data scraping error:', error);
+      sendResponse({
         success: false,
-        url: window.location.href
+        error: error.message
       });
     }
-    
     return true; // Allow asynchronous response
   }
 });
 
-// Diagnostic logging
-console.log('Advanced Web Content Scraper initialized');
+// Function to prepare data in format ready for your classification model
+function prepareForClassification(testData) {
+  const items = [];
+  
+  // Add main content if present
+  if (testData.mainContent) {
+    items.push({
+      text: testData.mainContent.text,
+      type: 'post',
+      source: testData.url,
+      source_type: testData.sourceType
+    });
+  }
+  
+  // Add each comment
+  testData.comments.forEach(comment => {
+    items.push({
+      text: comment.text,
+      type: 'comment',
+      source: testData.url,
+      source_type: testData.sourceType
+    });
+  });
+  
+  return items;
+}
+
+// Function to convert the data to CSV format if needed
+function convertToCSV(data) {
+  // Create headers based on object keys
+  const headers = Object.keys(data[0]).join(',');
+  
+  // Create rows
+  const rows = data.map(item => {
+    return Object.values(item).map(value => {
+      // Handle strings with commas by wrapping in quotes and escaping internal quotes
+      if (typeof value === 'string') {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    }).join(',');
+  }).join('\n');
+  
+  return headers + '\n' + rows;
+}
+
+// Usage example in browser console
+console.log('Testing data scraper initialized');
 
