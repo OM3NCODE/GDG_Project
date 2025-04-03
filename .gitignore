@@ -1,4 +1,4 @@
-venv
+tvenv
 .env
 __pycache__
 api_logs.log
