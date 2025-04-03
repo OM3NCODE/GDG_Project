@@ -82,6 +82,7 @@ def classify_text(input_text):
     retrieved_texts = results["documents"][0] if results["documents"] else []
     print(f"🔍 Retrieved Texts: {retrieved_texts}")
     print(f"Input Text {input_text}")
+    
     # ✅ **Prompt for Classification**
     prompt = f"""
     Given the retrieved examples: {retrieved_texts}
