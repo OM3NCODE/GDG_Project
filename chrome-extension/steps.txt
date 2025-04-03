@@ -1,7 +1,7 @@
 1. Start the API Server
 Run this in your terminal:
 
-uvicorn main:app --reload
+uvicorn api:app --reload
 
 
 2. Load the Extension in Chrome
