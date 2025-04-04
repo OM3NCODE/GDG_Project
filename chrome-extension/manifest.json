@@ -3,13 +3,21 @@
   "version": "1.0",
   "description": "Classifies web content as Hate Speech, Moderate, or Safe using a RAG model",
   "manifest_version": 3,
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["http://localhost:8000/*"],
   "action": {
     "default_popup": "popup.html"
   },
-  "content_scripts": 
+  "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "*://*.instagram.com/*",
+        "*://*.twitter.com/*",
+        "*://*.x.com/*",
+        "*://*.reddit.com/*",
+        "*://*.youtube.com/*"
+      ],
       "js": ["content.js"]
-  }
+    }
+  ]
 }
