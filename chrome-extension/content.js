@@ -332,3 +332,110 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Diagnostic logging
 console.log('RAG model content scraper initialized');
 
+async function sendToRAGModel(formattedData) {
+  try {
+    // Transform the data to match your FastAPI ScrapedContentRequest format
+    const apiRequest = {
+      content: formattedData.content.map(item => ({
+        url: item.url,
+        text: item.text,
+        timestamp: item.timestamp,
+        metadata: item.metadata
+      }))
+    };
+    
+    // Send to your FastAPI endpoint
+    const response = await fetch('http://localhost:8000/scrape', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(apiRequest)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API returned status ${response.status}`);
+    }
+    
+    return await response.json();
+    
+  } catch (error) {
+    console.error('Error sending data to RAG model:', error);
+    throw error;
+  }
+}
+
+async function fetchRAGResults() {
+  try {
+    const response = await fetch('http://localhost:8000/view-rag-results');
+    
+    if (!response.ok) {
+      throw new Error(`API returned status ${response.status}`);
+    }
+    
+    return await response.json();
+    
+  } catch (error) {
+    console.error('Error fetching RAG results:', error);
+    throw error;
+  }
+}
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'scrape') {
+    try {
+      const scrapedContent = scrapeTargetedContent();
+      const formattedData = formatForAPI(scrapedContent, window.location.href);
+      
+      // Send initial response with scraped content
+      sendResponse({ 
+        paragraphs: prepareParagraphs(formattedData),
+        success: true,
+        url: window.location.href,
+        timestamp: new Date().toISOString(),
+        contentType: determineContentType(window.location.href),
+        formattedData: formattedData,
+        message: "Content scraped successfully."
+      });
+      
+      // If classification is requested, send to RAG model
+      if (request.classify) {
+        // Start processing in background
+        sendToRAGModel(formattedData).then(apiResponse => {
+          // Notify that processing is complete
+          chrome.runtime.sendMessage({
+            action: 'processingComplete',
+            response: apiResponse
+          });
+          
+          // Fetch the processed results
+          fetchRAGResults().then(results => {
+            chrome.runtime.sendMessage({
+              action: 'resultsReady',
+              results: results
+            });
+          }).catch(error => {
+            chrome.runtime.sendMessage({
+              action: 'resultsError',
+              error: error.message
+            });
+          });
+        }).catch(error => {
+          chrome.runtime.sendMessage({
+            action: 'processingError',
+            error: error.message
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Scraping error:', error);
+      sendResponse({ 
+        error: error.message,
+        success: false,
+        url: window.location.href
+      });
+    }
+    
+    return true; // Allow asynchronous response
+  }
+});

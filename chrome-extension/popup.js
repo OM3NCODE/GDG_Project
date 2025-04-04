@@ -1,137 +1,235 @@
 // Configuration
-const API_ENDPOINT = 'http://localhost:8000/scrape';
-const VIEW_RAG_RESULTS_ENDPOINT = 'http://localhost:8000/view-rag-result/0'; // To view the first result
+const API_BASE_URL = 'http://localhost:8000';
 
-document.getElementById('scrapeButton').addEventListener('click', () => {
-  const statusDiv = document.getElementById('status');
-  const resultsDiv = document.getElementById('results');
-  const loader = document.getElementById('loader');
+// DOM Elements
+const scrapeBtn = document.getElementById('scrapeBtn');
+const statusMessage = document.getElementById('statusMessage');
+const contentContainer = document.getElementById('contentContainer');
+const rawContentContainer = document.getElementById('rawContentContainer');
+const summaryElement = document.getElementById('summary');
+const hateSpeechCount = document.getElementById('hateSpeechCount');
+const moderateCount = document.getElementById('moderateCount');
+const safeCount = document.getElementById('safeCount');
+const tabs = document.querySelectorAll('.tab');
+const tabContents = document.querySelectorAll('.tab-content');
 
-  statusDiv.textContent = 'Scraping and processing with RAG model...';
-  if (resultsDiv) resultsDiv.innerHTML = '';
-  if (loader) loader.style.display = 'block';
+// State variables
+let scrapedData = null;
+let classificationResults = null;
 
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    if (!tabs[0]) {
-      statusDiv.textContent = 'Error: No active tab found';
-      if (loader) loader.style.display = 'none';
-      return;
-    }
-
-    chrome.tabs.sendMessage(tabs[0].id, {action: 'scrape'}, async (response) => {
-      if (chrome.runtime.lastError) {
-        console.error('Error sending message:', chrome.runtime.lastError);
-        statusDiv.textContent = 'Error: Could not send message to page';
-        if (loader) loader.style.display = 'none';
-        return;
-      }
-
-      if (response && response.paragraphs) {
-        try {
-          const payload = {
-            content: [{
-              url: response.url,
-              text: response.paragraphs.join('\n\n'),
-              timestamp: new Date().toISOString()
-            }]
-          };
-
-          const apiResponse = await fetch(API_ENDPOINT, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-          });
-
-          if (!apiResponse.ok) throw new Error('API request failed');
-          const result = await apiResponse.json();
-
-          const ragResponse = await fetch(VIEW_RAG_RESULTS_ENDPOINT);
-          let ragResult = ragResponse.ok ? await ragResponse.json() : null;
-
-          statusDiv.textContent = 'Processing complete!';
-          if (loader) loader.style.display = 'none';
-
-          if (resultsDiv) {
-            let resultsHTML = `
-              <div class="result-item">
-                <strong>Status:</strong> ${result.message}<br>
-                <strong>Total Items:</strong> ${result.total_items}<br>
-                <strong>Processed Items:</strong> ${result.processed_items}<br>
-            `;
-
-            if (ragResult) {
-              resultsHTML += `
-                <details>
-                  <summary>View RAG Processing Results</summary>
-                  <div class="rag-results">
-                    <h3>RAG Model Analysis</h3>
-                    <pre>${formatRagResult(ragResult)}</pre>
-                  </div>
-                </details>
-              `;
-            }
-
-            resultsHTML += `
-                <details>
-                  <summary>View API Endpoints</summary>
-                  <p>
-                    <strong>View all scrapes:</strong> /view-scrapes<br>
-                    <strong>View specific scrape:</strong> /view-scrape/0<br>
-                    <strong>View all RAG results:</strong> /view-rag-results<br>
-                    <strong>View specific RAG result:</strong> /view-rag-result/0
-                  </p>
-                </details>
-              </div>
-            `;
-
-            resultsDiv.innerHTML = resultsHTML;
-          }
-
-          console.log('API Scrape Result:', result);
-          if (ragResult) console.log('RAG Result:', ragResult);
-
-        } catch (error) {
-          console.error('API Error:', error);
-          statusDiv.textContent = 'Error processing data with RAG model';
-          if (loader) loader.style.display = 'none';
-        }
-      } else {
-        statusDiv.textContent = 'No content found or error occurred.';
-        if (loader) loader.style.display = 'none';
-        console.log('Response:', response);
+// Setup tabs
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const tabName = tab.getAttribute('data-tab');
+    
+    // Update active tab
+    tabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    
+    // Show active content
+    tabContents.forEach(content => {
+      content.classList.remove('active');
+      if (content.id === `${tabName}Tab`) {
+        content.classList.add('active');
       }
     });
   });
 });
 
-function formatRagResult(result) {
-  if (typeof result === 'string') {
-    return result
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  } else if (result.processed_result) {
-    return result.processed_result
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  } else {
-    return 'Result format not recognized';
+// Scrape button click handler
+scrapeBtn.addEventListener('click', async () => {
+  try {
+    setStatus('Scraping content...', 'progress');
+    scrapeBtn.disabled = true;
+    
+    // Get the active tab
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const activeTab = tabs[0];
+    
+    // Send message to content script
+    chrome.tabs.sendMessage(activeTab.id, { action: 'scrape', classify: true }, response => {
+      if (chrome.runtime.lastError) {
+        setStatus(`Error: ${chrome.runtime.lastError.message}`, 'error');
+        scrapeBtn.disabled = false;
+        return;
+      }
+      
+      if (!response || !response.success) {
+        setStatus(`Error: ${response?.error || 'Failed to scrape content'}`, 'error');
+        scrapeBtn.disabled = false;
+        return;
+      }
+      
+      // Store the scraped data
+      scrapedData = response;
+      
+      // Display raw content
+      displayRawContent(response.formattedData);
+      
+      setStatus('Content scraped successfully. Processing with RAG model...', 'progress');
+    });
+  } catch (error) {
+    setStatus(`Error: ${error.message}`, 'error');
+    scrapeBtn.disabled = false;
   }
+});
+
+// Chrome message listener for background processing
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'processingComplete') {
+    setStatus('Content processed. Fetching results...', 'progress');
+  } else if (message.action === 'processingError') {
+    setStatus(`Error processing content: ${message.error}`, 'error');
+    scrapeBtn.disabled = false;
+  } else if (message.action === 'resultsReady') {
+    displayClassificationResults(message.results);
+    setStatus(`Classification complete. Analyzed ${message.results.total_items} items.`, 'success');
+    scrapeBtn.disabled = false;
+  } else if (message.action === 'resultsError') {
+    setStatus(`Error fetching results: ${message.error}`, 'error');
+    scrapeBtn.disabled = false;
+  }
+});
+
+// Display the raw scraped content
+function displayRawContent(data) {
+  rawContentContainer.innerHTML = '';
+  
+  if (!data || !data.content || data.content.length === 0) {
+    rawContentContainer.innerHTML = '<div class="content-item">No content scraped</div>';
+    return;
+  }
+  
+  data.content.forEach((item, index) => {
+    const contentElement = document.createElement('div');
+    contentElement.className = 'content-item';
+    
+    const contentType = document.createElement('div');
+    contentType.className = 'content-type';
+    contentType.innerHTML = `
+      <span>${item.metadata.type}</span>
+      <span>${new Date(item.timestamp).toLocaleTimeString()}</span>
+    `;
+    
+    const contentText = document.createElement('div');
+    contentText.className = 'content-text';
+    contentText.textContent = item.text;
+    
+    contentElement.appendChild(contentType);
+    contentElement.appendChild(contentText);
+    
+    rawContentContainer.appendChild(contentElement);
+  });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const statusDiv = document.getElementById('status');
-  const resultsDiv = document.getElementById('results');
-  const loader = document.getElementById('loader');
+// Display the classification results
+function displayClassificationResults(results) {
+  contentContainer.innerHTML = '';
+  summaryElement.style.display = 'flex';
+  
+  if (!results || !results.results || results.results.length === 0) {
+    contentContainer.innerHTML = '<div class="content-item">No classification results available</div>';
+    return;
+  }
+  
+  // Reset counters
+  let hateSpeechTotal = 0;
+  let moderateTotal = 0;
+  let safeTotal = 0;
+  
+  // Fetch individual results to get full text
+  fetchAllDetailedResults(results.results.length).then(detailedResults => {
+    detailedResults.forEach(result => {
+      // Determine classification
+      let classification = 'Unknown';
+      let classType = '';
+      
+      if (result.processed_result.includes('Hate Speech')) {
+        classification = 'Hate Speech';
+        classType = 'hate-speech';
+        hateSpeechTotal++;
+      } else if (result.processed_result.includes('Moderate')) {
+        classification = 'Moderate';
+        classType = 'moderate';
+        moderateTotal++;
+      } else if (result.processed_result.includes('Safe')) {
+        classification = 'Safe';
+        classType = 'safe';
+        safeTotal++;
+      }
+      
+      // Create result element
+      const resultElement = document.createElement('div');
+      resultElement.className = `content-item ${classType}`;
+      
+      const contentType = document.createElement('div');
+      contentType.className = 'content-type';
+      contentType.innerHTML = `
+        <span>From: ${new URL(result.url).hostname}</span>
+        <span>${new Date(result.timestamp).toLocaleTimeString()}</span>
+      `;
+      
+      const contentText = document.createElement('div');
+      contentText.className = 'content-text';
+      contentText.textContent = result.original_text;
+      
+      const classificationElement = document.createElement('div');
+      classificationElement.className = `classification ${classType}`;
+      classificationElement.textContent = classification;
+      
+      resultElement.appendChild(contentType);
+      resultElement.appendChild(contentText);
+      resultElement.appendChild(classificationElement);
+      
+      contentContainer.appendChild(resultElement);
+    });
+    
+    // Update summary counts
+    hateSpeechCount.textContent = hateSpeechTotal;
+    moderateCount.textContent = moderateTotal;
+    safeCount.textContent = safeTotal;
+  }).catch(error => {
+    console.error('Error fetching detailed results:', error);
+    contentContainer.innerHTML = `<div class="content-item">Error loading detailed results: ${error.message}</div>`;
+  });
+}
 
-  if (statusDiv) statusDiv.textContent = 'Ready to scrape and process with RAG model';
-  if (resultsDiv) resultsDiv.innerHTML = '';
-  if (loader) loader.style.display = 'none';
-});
+// Fetch detailed results for each item
+async function fetchAllDetailedResults(count) {
+  const detailedResults = [];
+  
+  for (let i = 0; i < count; i++) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/view-rag-result/${i}`);
+      
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+      
+      const result = await response.json();
+      detailedResults.push(result);
+    } catch (error) {
+      console.error(`Error fetching result ${i}:`, error);
+    }
+  }
+  
+  return detailedResults;
+}
+
+// Set status message with appropriate styling
+function setStatus(message, type) {
+  statusMessage.textContent = message;
+  statusMessage.className = `status ${type}`;
+}
+
+// Initialize
+function initialize() {
+  // Clear any previous state
+  setStatus('', '');
+  contentContainer.innerHTML = '';
+  rawContentContainer.innerHTML = '';
+  summaryElement.style.display = 'none';
+}
+
+// Initialize the popup
+initialize();

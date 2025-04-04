@@ -1,23 +1,26 @@
 {
-  "manifest_version": 3,
-  "name": "Web Content Classifier",
+  "name": "Web Content Safety Classifier",
   "version": "1.0",
-  "description": "Scrape and classify web content",
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "tabs"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "description": "Classifies web content as Hate Speech, Moderate, or Safe using a RAG model",
+  "manifest_version": 3,
+  "permissions": ["activeTab", "scripting"],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "js": ["content-script.js"]
     }
-  ]
+  ],
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  }
 }

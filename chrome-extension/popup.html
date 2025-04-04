@@ -2,157 +2,240 @@
 <html>
 <head>
   <title>Web Content Classifier</title>
-  <!-- Modern Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
   <style>
     body {
-      font-family: 'Inter', sans-serif;
-      width: 360px;
-      padding: 12px;
-      background-color: #f2f4f8;
+      font-family: Arial, sans-serif;
+      width: 480px;
+      margin: 0;
+      padding: 15px;
     }
-
-    .card {
-      background: #ffffff;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      padding: 16px;
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 10px;
     }
-
+    
     h1 {
       font-size: 18px;
-      margin-bottom: 15px;
-      color: #333;
+      margin: 0;
     }
-
+    
     button {
       background-color: #4285f4;
       color: white;
       border: none;
-      padding: 10px 18px;
-      font-size: 14px;
-      font-weight: 600;
-      border-radius: 6px;
+      padding: 8px 16px;
+      border-radius: 4px;
       cursor: pointer;
-      box-shadow: 0 2px 6px rgba(66, 133, 244, 0.4);
-      transition: background-color 0.3s ease, transform 0.1s ease;
-      margin-bottom: 12px;
     }
-
+    
     button:hover {
-      background-color: #3367d6;
-      transform: scale(1.02);
+      background-color: #357ae8;
     }
-
-    #status {
+    
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    
+    .status {
       margin: 10px 0;
-      font-style: italic;
+      padding: 10px;
+      border-radius: 4px;
+      background-color: #f5f5f5;
+      display: none;
+    }
+    
+    .status.success {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+      display: block;
+    }
+    
+    .status.error {
+      background-color: #ffebee;
+      color: #c62828;
+      display: block;
+    }
+    
+    .status.progress {
+      background-color: #e3f2fd;
+      color: #1565c0;
+      display: block;
+    }
+    
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      background-color: #f5f5f5;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+    
+    .summary-item {
+      text-align: center;
+      padding: 0 10px;
+    }
+    
+    .summary-item .count {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .summary-item.hate-speech .count {
+      color: #c62828;
+    }
+    
+    .summary-item.moderate .count {
+      color: #e65100;
+    }
+    
+    .summary-item.safe .count {
+      color: #2e7d32;
+    }
+    
+    .summary-item .label {
+      font-size: 12px;
       color: #666;
     }
-
-    #results {
-      margin-top: 15px;
-      max-height: 300px;
+    
+    .content-container {
+      max-height: 350px;
       overflow-y: auto;
-      border-top: 1px solid #ddd;
-      padding-top: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
     }
-
-    #results::-webkit-scrollbar {
-      width: 6px;
+    
+    .content-item {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
     }
-
-    #results::-webkit-scrollbar-track {
-      background: transparent;
+    
+    .content-item:last-child {
+      border-bottom: none;
     }
-
-    #results::-webkit-scrollbar-thumb {
-      background-color: #ccc;
-      border-radius: 10px;
+    
+    .content-item.hate-speech {
+      border-left: 4px solid #f44336;
     }
-
-    .result-item {
-      margin-bottom: 12px;
-      padding: 10px;
-      background-color: #fafafa;
-      border-radius: 8px;
-      border: 1px solid #eee;
-      transition: box-shadow 0.2s ease;
+    
+    .content-item.moderate {
+      border-left: 4px solid #ff9800;
     }
-
-    .result-item:hover {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    
+    .content-item.safe {
+      border-left: 4px solid #4caf50;
     }
-
-    details {
-      margin-top: 8px;
+    
+    .content-type {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 5px;
+      display: flex;
+      justify-content: space-between;
     }
-
-    summary {
+    
+    .content-text {
+      margin-bottom: 8px;
+      white-space: pre-wrap;
+      font-size: 14px;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+    
+    .classification {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    .classification.hate-speech {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+    
+    .classification.moderate {
+      background-color: #fff3e0;
+      color: #e65100;
+    }
+    
+    .classification.safe {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+    
+    .tabs {
+      display: flex;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .tab {
+      padding: 8px 16px;
       cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    
+    .tab.active {
+      border-bottom: 2px solid #4285f4;
       color: #4285f4;
       font-weight: bold;
     }
-
-    .rag-results {
-      margin-top: 8px;
-      padding: 8px;
-      background-color: #f0f8ff;
-      border-left: 4px solid #4285f4;
-      font-size: 12px;
-      border-radius: 4px;
+    
+    .tab-content {
+      display: none;
     }
-
-    .rag-results h3 {
-      margin-top: 0;
-      font-size: 14px;
+    
+    .tab-content.active {
+      display: block;
     }
-
-    pre {
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      font-family: monospace;
-      font-size: 12px;
-      background-color: #f5f5f5;
-      padding: 8px;
-      border-radius: 4px;
-      max-height: 200px;
-      overflow-y: auto;
-    }
-
-    .footer {
-      text-align: center;
-      font-size: 11px;
-      color: #999;
-      margin-top: 16px;
-    }
-    .spinner {
-  margin: 10px auto;
-  width: 30px;
-  height: 30px;
-  border: 4px solid #ddd;
-  border-top: 4px solid #4285f4;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  display: none;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
   </style>
 </head>
 <body>
-  <div class="card">
+  <div class="header">
     <h1>Web Content Classifier</h1>
-    <button id="scrapeButton">Scrape & Process Content</button>
-    <div id="status">Ready to scrape and process with RAG model</div>
-    <div id="loader" class="spinner"></div>
-    <div id="results"></div>
-    <div class="footer">v1.0 - Made by TEAM SEAI</div>
+    <button id="scrapeBtn">Analyze Content</button>
   </div>
+  
+  <div id="statusMessage" class="status"></div>
+  
+  <div class="tabs">
+    <div class="tab active" data-tab="results">Classification Results</div>
+    <div class="tab" data-tab="raw">Raw Content</div>
+  </div>
+  
+  <div id="resultsTab" class="tab-content active">
+    <div id="summary" class="summary" style="display: none;">
+      <div class="summary-item hate-speech">
+        <div id="hateSpeechCount" class="count">0</div>
+        <div class="label">Hate Speech</div>
+      </div>
+      <div class="summary-item moderate">
+        <div id="moderateCount" class="count">0</div>
+        <div class="label">Moderate</div>
+      </div>
+      <div class="summary-item safe">
+        <div id="safeCount" class="count">0</div>
+        <div class="label">Safe</div>
+      </div>
+    </div>
+    
+    <div id="contentContainer" class="content-container"></div>
+  </div>
+  
+  <div id="rawTab" class="tab-content">
+    <div id="rawContentContainer" class="content-container"></div>
+  </div>
+  
   <script src="popup.js"></script>
 </body>
 </html>
