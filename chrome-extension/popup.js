@@ -1,7 +1,5 @@
-// Configuration
 const API_BASE_URL = 'http://localhost:8000';
 
-// DOM Elements
 const scrapeBtn = document.getElementById('scrapeBtn');
 const statusMessage = document.getElementById('statusMessage');
 const contentContainer = document.getElementById('contentContainer');
@@ -13,20 +11,16 @@ const safeCount = document.getElementById('safeCount');
 const tabs = document.querySelectorAll('.tab');
 const tabContents = document.querySelectorAll('.tab-content');
 
-// State variables
 let scrapedData = null;
 let classificationResults = null;
 
-// Setup tabs
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
     const tabName = tab.getAttribute('data-tab');
     
-    // Update active tab
     tabs.forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     
-    // Show active content
     tabContents.forEach(content => {
       content.classList.remove('active');
       if (content.id === `${tabName}Tab`) {
@@ -36,17 +30,14 @@ tabs.forEach(tab => {
   });
 });
 
-// Scrape button click handler
 scrapeBtn.addEventListener('click', async () => {
   try {
     setStatus('Scraping content...', 'progress');
     scrapeBtn.disabled = true;
-    
-    // Get the active tab
+
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const activeTab = tabs[0];
     
-    // Send message to content script
     chrome.tabs.sendMessage(activeTab.id, { action: 'scrape', classify: true }, response => {
       if (chrome.runtime.lastError) {
         setStatus(`Error: ${chrome.runtime.lastError.message}`, 'error');
@@ -60,10 +51,8 @@ scrapeBtn.addEventListener('click', async () => {
         return;
       }
       
-      // Store the scraped data
       scrapedData = response;
       
-      // Display raw content
       displayRawContent(response.formattedData);
       
       setStatus('Content scraped successfully. Processing with RAG model...', 'progress');
@@ -74,7 +63,6 @@ scrapeBtn.addEventListener('click', async () => {
   }
 });
 
-// Chrome message listener for background processing
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'processingComplete') {
     setStatus('Content processed. Fetching results...', 'progress');
@@ -122,25 +110,18 @@ function displayRawContent(data) {
   });
 }
 
-// Display the classification results
 function displayClassificationResults(results) {
   contentContainer.innerHTML = '';
   summaryElement.style.display = 'flex';
-  
   if (!results || !results.results || results.results.length === 0) {
     contentContainer.innerHTML = '<div class="content-item">No classification results available</div>';
     return;
   }
-  
-  // Reset counters
   let hateSpeechTotal = 0;
   let moderateTotal = 0;
   let safeTotal = 0;
-  
-  // Fetch individual results to get full text
   fetchAllDetailedResults(results.results.length).then(detailedResults => {
     detailedResults.forEach(result => {
-      // Determine classification
       let classification = 'Unknown';
       let classType = '';
       
@@ -158,7 +139,6 @@ function displayClassificationResults(results) {
         safeTotal++;
       }
       
-      // Create result element
       const resultElement = document.createElement('div');
       resultElement.className = `content-item ${classType}`;
       
@@ -176,15 +156,11 @@ function displayClassificationResults(results) {
       const classificationElement = document.createElement('div');
       classificationElement.className = `classification ${classType}`;
       classificationElement.textContent = classification;
-      
       resultElement.appendChild(contentType);
       resultElement.appendChild(contentText);
       resultElement.appendChild(classificationElement);
-      
       contentContainer.appendChild(resultElement);
     });
-    
-    // Update summary counts
     hateSpeechCount.textContent = hateSpeechTotal;
     moderateCount.textContent = moderateTotal;
     safeCount.textContent = safeTotal;
@@ -194,42 +170,32 @@ function displayClassificationResults(results) {
   });
 }
 
-// Fetch detailed results for each item
 async function fetchAllDetailedResults(count) {
   const detailedResults = [];
-  
   for (let i = 0; i < count; i++) {
     try {
       const response = await fetch(`${API_BASE_URL}/view-rag-result/${i}`);
-      
       if (!response.ok) {
         throw new Error(`API returned status ${response.status}`);
       }
-      
       const result = await response.json();
       detailedResults.push(result);
     } catch (error) {
       console.error(`Error fetching result ${i}:`, error);
     }
   }
-  
   return detailedResults;
 }
 
-// Set status message with appropriate styling
 function setStatus(message, type) {
   statusMessage.textContent = message;
   statusMessage.className = `status ${type}`;
 }
-
-// Initialize
 function initialize() {
-  // Clear any previous state
   setStatus('', '');
   contentContainer.innerHTML = '';
   rawContentContainer.innerHTML = '';
   summaryElement.style.display = 'none';
 }
 
-// Initialize the popup
 initialize();

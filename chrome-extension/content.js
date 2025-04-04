@@ -1,441 +1,280 @@
-function scrapeTargetedContent() {
+const PLATFORMS = {
+  INSTAGRAM: {
+    domain: 'instagram.com',
+    selectors: {
+      postText: 'div._a9zs, div._a9z6, div._ab5z',
+      comments: 'ul.x9f619 div._a9zs',
+      commentAuthor: 'span._aap6, span._aacl',
+      timeFilter: 'time._aaqe',
+    }
+  },
+  TWITTER: {
+    domain: 'twitter.com|x.com',
+    selectors: {
+      postText: 'article div[data-testid="tweetText"]',
+      comments: 'article div[data-testid="tweetText"]',
+      timeFilter: 'time',
+    }
+  },
+  REDDIT: {
+    domain: 'reddit.com',
+    selectors: {
+      postText: 'div[data-test-id="post-content"] div, div.RichTextJSON-root',
+      comments: 'div[data-testid="comment"] div, div.RichTextJSON-root',
+      commentAuthor: 'div[data-testid="comment"] a[data-testid="username"]',
+      timeFilter: 'span:contains("ago"), span:contains("minute"), span:contains("hour"), span:contains("day")',
+    }
+  },
+  YOUTUBE: {
+    domain: 'youtube.com',
+    selectors: {
+      postText: 'yt-formatted-string.ytd-video-secondary-info-renderer, div#description',
+      comments: 'ytd-comment-renderer #content-text',
+      commentAuthor: 'ytd-comment-renderer #author-text',
+      timeFilter: 'yt-formatted-string.ytd-comment-renderer:contains("ago")',
+    }
+  }
+};
+
+/**
+ * Removes timestamps, URLs, and unnecessary markup from text
+ * @param {string} text - The text to clean
+ * @return {string} - Cleaned text
+ */
+function cleanText(text) {
+  if (!text) return '';
+  
+  let cleaned = text.replace(/\b\d{1,2}:\d{2}(:\d{2})?\b|\b\d{1,2}(:\d{2})?\s?(am|pm)\b/gi, '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/@\w+/g, '') // @mentions
+    .replace(/#\w+/g, '') // #hashtags
+    .replace(/\s+/g, ' ')
+    .trim();
+    
+  return cleaned;
+}
+
+/**
+ * Extracts text content from DOM elements matching a selector
+ * @param {string} selector - CSS selector
+ * @param {boolean} excludeTimestamps - Whether to exclude elements with timestamps
+ * @return {Array} - Array of extracted text items
+ */
+function extractTextContent(selector, timeFilterSelector = null) {
+  const elements = document.querySelectorAll(selector);
+  const results = [];
+  
+  elements.forEach(element => {
+    if (timeFilterSelector && element.matches(timeFilterSelector)) {
+      return;
+    }
+    
+    const text = cleanText(element.textContent);
+    if (text && text.length > 2) { // Only keep text with meaningful content
+      results.push(text);
+    }
+  });
+  
+  return results;
+}
+
+/**
+ * Detects the current platform based on URL
+ * @return {Object|null} - Platform configuration or null if not recognized
+ */
+function detectPlatform() {
   const url = window.location.href;
-  const hostname = window.location.hostname;
   
-  // Site-specific extraction strategies
-  if (hostname.includes('reddit.com')) {
-    return scrapeRedditContent();
-  } else if (hostname.includes('youtube.com')) {
-    return scrapeYouTubeComments();
-  } else if (hostname.includes('twitter.com') || hostname.includes('x.com')) {
-    return scrapeTwitterContent();
-  } else if (hostname.includes('instagram.com')) {
-    return scrapeInstagramContent();
-  } else {
-    // Generic content extraction for other sites
-    return scrapeGenericContent();
-  }
-}
-
-function scrapeRedditContent() {
-  const results = {
-    postContent: '',
-    comments: []
-  };
-  
-  // Extract post content
-  const postContentElement = document.querySelector('.Post [data-test-id="post-content"]');
-  if (postContentElement) {
-    // Look for the main text in the post
-    const textElements = postContentElement.querySelectorAll('p, h1, h2, h3, h4, h5, h6');
-    if (textElements.length > 0) {
-      results.postContent = Array.from(textElements)
-        .map(el => el.innerText.trim())
-        .join('\n\n');
+  for (const [platform, config] of Object.entries(PLATFORMS)) {
+    const domainRegex = new RegExp(config.domain, 'i');
+    if (domainRegex.test(url)) {
+      return {
+        name: platform.toLowerCase(),
+        config: config
+      };
     }
   }
   
-  // Extract comments - target only the text content of comments, not usernames or metadata
-  const commentElements = document.querySelectorAll('.Comment');
-  commentElements.forEach(comment => {
-    // First child after the metadata is typically the comment text
-    const commentBodyElement = comment.querySelector('[data-testid="comment"]');
-    if (commentBodyElement) {
-      const commentText = commentBodyElement.innerText.trim();
-      if (commentText.length > 10) { // Minimum length to filter out noise
-        results.comments.push(commentText);
-      }
-    }
-  });
-  
-  return results;
+  return null;
 }
 
-function scrapeYouTubeComments() {
-  const results = {
-    videoTitle: '',
-    videoDescription: '',
-    comments: []
-  };
-  
-  // Extract video title
-  const titleElement = document.querySelector('h1.ytd-video-primary-info-renderer');
-  if (titleElement) {
-    results.videoTitle = titleElement.innerText.trim();
-  }
-  
-  // Extract video description
-  const descriptionElement = document.querySelector('#description-text');
-  if (descriptionElement) {
-    results.videoDescription = descriptionElement.innerText.trim();
-  }
-  
-  // Extract comments - focus only on comment content
-  const commentElements = document.querySelectorAll('ytd-comment-renderer #content-text');
-  commentElements.forEach(comment => {
-    const commentText = comment.innerText.trim();
-    if (commentText.length > 10) {
-      results.comments.push(commentText);
+/**
+ * Main scraping function that collects content based on platform
+ * @return {Object} - Object with scraped content
+ */
+function scrapeContent() {
+  const platform = detectPlatform();
+  const scrapedData = {
+    success: false,
+    error: null,
+    url: window.location.href,
+    platform: platform ? platform.name : 'unknown',
+    formattedData: {
+      content: []
     }
-  });
-  
-  return results;
-}
-
-function scrapeTwitterContent() {
-  const results = {
-    mainTweet: '',
-    replies: []
   };
   
-  // Main tweet content
-  const mainTweetElement = document.querySelector('[data-testid="tweet"] [data-testid="tweetText"]');
-  if (mainTweetElement) {
-    results.mainTweet = mainTweetElement.innerText.trim();
-  }
-  
-  // Reply tweets - only text content
-  const replyElements = document.querySelectorAll('[data-testid="reply"] [data-testid="tweetText"]');
-  replyElements.forEach(reply => {
-    const replyText = reply.innerText.trim();
-    if (replyText.length > 5) {
-      results.replies.push(replyText);
-    }
-  });
-  
-  return results;
-}
-
-function scrapeInstagramContent() {
-  const results = {
-    postCaption: '',
-    comments: []
-  };
-  
-  // Post caption - Instagram captions are typically in an h1 element or span near the top of the post
-  const captionElement = document.querySelector('h1._aagw, div._a9zs, article span._aacl._aaco._aacu._aacx._aad7._aade');
-  if (captionElement) {
-    results.postCaption = captionElement.innerText.trim();
-  }
-  
-  // Comments - target specific comment elements
-  // Instagram uses complex nested structures, so we're targeting specific patterns
-  const commentElements = document.querySelectorAll('ul ul div._a9zs, div._ae4k, div.xdj266r');
-  commentElements.forEach(comment => {
-    // Filter out comment metadata
-    const commentText = comment.innerText.trim();
-    
-    // Remove username at the beginning if present
-    let cleanText = commentText;
-    const usernameMatch = commentText.match(/^@?[\w\._]+\s+/);
-    if (usernameMatch) {
-      cleanText = commentText.substring(usernameMatch[0].length).trim();
+  try {
+    if (!platform) {
+      scrapedData.error = "Platform not supported for scraping";
+      return scrapedData;
     }
     
-    if (cleanText.length > 10) {
-      results.comments.push(cleanText);
-    }
-  });
-  
-  return results;
-}
-
-function scrapeGenericContent() {
-  const results = {
-    title: '',
-    mainContent: '',
-    comments: []
-  };
-  
-  // Extract title
-  const titleElement = document.querySelector('h1') || document.querySelector('title');
-  if (titleElement) {
-    results.title = titleElement.innerText.trim();
-  }
-  
-  // Look for main content area
-  const mainContentCandidates = [
-    document.querySelector('article'),
-    document.querySelector('main'),
-    document.querySelector('.content'),
-    document.querySelector('.post-content'),
-    document.querySelector('#content')
-  ].filter(Boolean);
-  
-  if (mainContentCandidates.length > 0) {
-    // Use the first available content area
-    const contentArea = mainContentCandidates[0];
-    const paragraphs = contentArea.querySelectorAll('p');
-    results.mainContent = Array.from(paragraphs)
-      .map(p => p.innerText.trim())
-      .filter(text => text.length > 30)
-      .join('\n\n');
-  }
-  
-  // Look for comment sections
-  const commentSelectors = [
-    '.comments', 
-    '#comments', 
-    '.comment-list', 
-    '[data-role="comment"]', 
-    '.comment-content'
-  ];
-  
-  for (const selector of commentSelectors) {
-    const commentElements = document.querySelectorAll(selector);
-    if (commentElements.length > 0) {
-      commentElements.forEach(comment => {
-        // Look for paragraph elements or divs within comments
-        const textElements = comment.querySelectorAll('p, .comment-text, .comment-body');
-        if (textElements.length > 0) {
-          const commentText = Array.from(textElements)
-            .map(el => el.innerText.trim())
-            .join('\n')
-            .trim();
-          
-          if (commentText.length > 20) {
-            results.comments.push(commentText);
+    const selectors = platform.config.selectors;
+    const timestamp = new Date().toISOString();
+    
+    const mainContentTexts = extractTextContent(selectors.postText, selectors.timeFilter);
+    
+    mainContentTexts.forEach(text => {
+      if (text.length > 0) {
+        scrapedData.formattedData.content.push({
+          url: window.location.href,
+          text: text,
+          timestamp: timestamp,
+          metadata: {
+            type: 'main_content',
+            platform: platform.name
           }
+        });
+      }
+    });
+    
+    const commentTexts = extractTextContent(selectors.comments, selectors.timeFilter);
+    
+    commentTexts.forEach(text => {
+      if (text.length > 0) {
+        scrapedData.formattedData.content.push({
+          url: window.location.href,
+          text: text,
+          timestamp: timestamp,
+          metadata: {
+            type: 'comment',
+            platform: platform.name
+          }
+        });
+      }
+    });
+    
+    scrapedData.success = true;
+  } catch (error) {
+    console.error("Scraping error:", error);
+    scrapedData.error = error.message;
+  }
+  
+  return scrapedData;
+}
+
+/**
+ * Sends scraped data to the API for processing
+ * @param {Object} data - Scraped content data
+ */
+async function sendToAPI(data) {
+  const API_BASE_URL = 'http://localhost:8000';
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/scrape`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data.formattedData)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API returned status ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    chrome.runtime.sendMessage({
+      action: 'processingComplete',
+      result: result
+    });
+    
+    const resultsResponse = await fetch(`${API_BASE_URL}/view-rag-results`);
+    if (!resultsResponse.ok) {
+      throw new Error(`Failed to fetch results: ${resultsResponse.status}`);
+    }
+    
+    const classificationResults = await resultsResponse.json();
+    
+    chrome.runtime.sendMessage({
+      action: 'resultsReady',
+      results: classificationResults
+    });
+    
+  } catch (error) {
+    console.error("API error:", error);
+    chrome.runtime.sendMessage({
+      action: 'processingError',
+      error: error.message
+    });
+  }
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'scrape') {
+    console.log("Starting content scraping...");
+    const scrapedData = scrapeContent();
+    
+    sendResponse(scrapedData);
+    
+    if (message.classify && scrapedData.success) {
+      sendToAPI(scrapedData);
+    }
+    
+    return true; 
+  }
+});
+
+function customScrapingStrategy() {
+  const url = window.location.href;
+  const customContent = [];
+  
+  if (url.includes('instagram.com')) {
+    document.querySelectorAll('div._ab1t, div._aagw').forEach(post => {
+      const textElements = post.querySelectorAll('span, div._a9zs');
+      let combinedText = '';
+      
+      textElements.forEach(el => {
+        if (el.textContent && !el.querySelector('time')) {
+          combinedText += ' ' + el.textContent;
         }
       });
       
-      // If we found comments with one selector, break the loop
-      if (results.comments.length > 0) break;
-    }
+      if (combinedText.trim().length > 0) {
+        customContent.push(cleanText(combinedText));
+      }
+    });
   }
   
-  return results;
+  if (url.includes('twitter.com') || url.includes('x.com')) {
+    document.querySelectorAll('div[data-testid="card.layoutSmall.detail"]').forEach(quote => {
+      const text = cleanText(quote.textContent);
+      if (text.length > 0) {
+        customContent.push(text);
+      }
+    });
+  }
+  
+  return customContent;
 }
 
-// Format the data for your API
-function formatForAPI(content, url) {
-  const formattedData = {
-    content: []
-  };
+function observeContentChanges() {
+  const platform = detectPlatform();
+  if (!platform) return;
   
-  // Process the main content first
-  let mainText = '';
-  
-  // Reddit format
-  if (content.postContent !== undefined) {
-    mainText = content.postContent;
-  } 
-  // YouTube format
-  else if (content.videoTitle !== undefined) {
-    mainText = `${content.videoTitle}\n\n${content.videoDescription || ''}`.trim();
-  } 
-  // Twitter format
-  else if (content.mainTweet !== undefined) {
-    mainText = content.mainTweet;
-  } 
-  // Instagram format
-  else if (content.postCaption !== undefined) {
-    mainText = content.postCaption;
-  } 
-  // Generic format
-  else if (content.title !== undefined) {
-    mainText = `${content.title ? content.title + '\n\n' : ''}${content.mainContent || ''}`.trim();
-  }
-  
-  // Add main content if not empty
-  if (mainText) {
-    formattedData.content.push({
-      url: url,
-      text: mainText,
-      timestamp: new Date().toISOString(),
-      metadata: {
-        type: 'main_content',
-        source: determineContentType(url)
-      }
-    });
-  }
-  
-  // Process comments
-  let comments = [];
-  
-  // Reddit or YouTube or Generic comments
-  if (content.comments) {
-    comments = content.comments;
-  } 
-  // Twitter replies
-  else if (content.replies) {
-    comments = content.replies;
-  }
-  
-  // Add each comment as a separate content item
-  comments.forEach((comment, index) => {
-    formattedData.content.push({
-      url: `${url}#comment${index + 1}`,
-      text: comment,
-      timestamp: new Date().toISOString(),
-      metadata: {
-        type: 'comment',
-        comment_index: index + 1,
-        source: determineContentType(url)
-      }
-    });
+  const observer = new MutationObserver((mutations) => {
+    console.log("Content changes detected");
   });
   
-  return formattedData;
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: false,
+    characterData: false
+  });
 }
+observeContentChanges();
 
-// Determine content type based on URL
-function determineContentType(url) {
-  const hostname = new URL(url).hostname;
-  
-  if (hostname.includes('reddit.com')) return 'reddit';
-  if (hostname.includes('youtube.com')) return 'youtube';
-  if (hostname.includes('twitter.com') || hostname.includes('x.com')) return 'twitter';
-  if (hostname.includes('instagram.com')) return 'instagram';
-  return 'generic';
-}
-
-// Prepare a paragraphs array for the existing Chrome extension code
-function prepareParagraphs(formattedData) {
-  // Extract all text content and concatenate it into paragraphs
-  return formattedData.content.map(item => item.text);
-}
-
-// Message listener to interact with popup.js
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'scrape') {
-    try {
-      const scrapedContent = scrapeTargetedContent();
-      const formattedData = formatForAPI(scrapedContent, window.location.href);
-      
-      // Create paragraphs array for compatibility with existing popup.js
-      const paragraphs = prepareParagraphs(formattedData);
-      
-      // Send the response in the format expected by your popup.js
-      sendResponse({ 
-        paragraphs: paragraphs,
-        success: true,
-        url: window.location.href,
-        timestamp: new Date().toISOString(),
-        contentType: determineContentType(window.location.href),
-        // Include the full formatted data for debugging
-        formattedData: formattedData
-      });
-    } catch (error) {
-      console.error('Scraping error:', error);
-      sendResponse({ 
-        error: error.message,
-        success: false,
-        url: window.location.href
-      });
-    }
-    
-    return true; // Allow asynchronous response
-  }
-});
-
-// Diagnostic logging
-console.log('RAG model content scraper initialized');
-
-async function sendToRAGModel(formattedData) {
-  try {
-    // Transform the data to match your FastAPI ScrapedContentRequest format
-    const apiRequest = {
-      content: formattedData.content.map(item => ({
-        url: item.url,
-        text: item.text,
-        timestamp: item.timestamp,
-        metadata: item.metadata
-      }))
-    };
-    
-    // Send to your FastAPI endpoint
-    const response = await fetch('http://localhost:8000/scrape', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(apiRequest)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`API returned status ${response.status}`);
-    }
-    
-    return await response.json();
-    
-  } catch (error) {
-    console.error('Error sending data to RAG model:', error);
-    throw error;
-  }
-}
-
-async function fetchRAGResults() {
-  try {
-    const response = await fetch('http://localhost:8000/view-rag-results');
-    
-    if (!response.ok) {
-      throw new Error(`API returned status ${response.status}`);
-    }
-    
-    return await response.json();
-    
-  } catch (error) {
-    console.error('Error fetching RAG results:', error);
-    throw error;
-  }
-}
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'scrape') {
-    try {
-      const scrapedContent = scrapeTargetedContent();
-      const formattedData = formatForAPI(scrapedContent, window.location.href);
-      
-      // Send initial response with scraped content
-      sendResponse({ 
-        paragraphs: prepareParagraphs(formattedData),
-        success: true,
-        url: window.location.href,
-        timestamp: new Date().toISOString(),
-        contentType: determineContentType(window.location.href),
-        formattedData: formattedData,
-        message: "Content scraped successfully."
-      });
-      
-      // If classification is requested, send to RAG model
-      if (request.classify) {
-        // Start processing in background
-        sendToRAGModel(formattedData).then(apiResponse => {
-          // Notify that processing is complete
-          chrome.runtime.sendMessage({
-            action: 'processingComplete',
-            response: apiResponse
-          });
-          
-          // Fetch the processed results
-          fetchRAGResults().then(results => {
-            chrome.runtime.sendMessage({
-              action: 'resultsReady',
-              results: results
-            });
-          }).catch(error => {
-            chrome.runtime.sendMessage({
-              action: 'resultsError',
-              error: error.message
-            });
-          });
-        }).catch(error => {
-          chrome.runtime.sendMessage({
-            action: 'processingError',
-            error: error.message
-          });
-        });
-      }
-    } catch (error) {
-      console.error('Scraping error:', error);
-      sendResponse({ 
-        error: error.message,
-        success: false,
-        url: window.location.href
-      });
-    }
-    
-    return true; // Allow asynchronous response
-  }
-});
+console.log("Content scraper loaded for: ", detectPlatform()?.name || "unsupported platform");
