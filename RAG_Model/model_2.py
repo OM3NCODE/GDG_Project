@@ -1,7 +1,7 @@
 import chromadb
 
 # Load the second database
-client2 = chromadb.PersistentClient(path="./chroma_db2")
+client2 = chromadb.PersistentClient(path="chroma_db2")
 collection2 = client2.get_or_create_collection(name="collection2")
 
 print("✅ Connected to Second Database!")
