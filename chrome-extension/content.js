@@ -93,9 +93,9 @@ function scrapeTwitterContent() {
   if (mainTweetElement) {
     results.mainTweet = mainTweetElement.innerText.trim();
   }
-  
+
   // Reply tweets - only text content
-  const replyElements = document.querySelectorAll('[data-testid="reply"] [data-testid="tweetText"]');
+  const replyElements = document.querySelectorAll('.css-146c3p1 r-8akbws r-krxsd3 r-dnmrzs r-1udh08x r-1udbk01 r-bcqeeo r-1ttztb7 r-qvutc0 r-37j5jr r-a023e6 r-rjixqe r-16dba41 r-bnwqim');
   replyElements.forEach(reply => {
     const replyText = reply.innerText.trim();
     if (replyText.length > 5) {
@@ -439,3 +439,5 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Allow asynchronous response
   }
 });
+
+console.log(scrapedContent);

@@ -1,3 +1,6 @@
 pandas 
 chromadb
 google-generativeai
+fastapi
+pydantic
+dotenv
