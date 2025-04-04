@@ -5,7 +5,8 @@
   "description": "Scrape and classify web content",
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
     "<all_urls>"

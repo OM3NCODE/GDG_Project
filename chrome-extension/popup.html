@@ -2,39 +2,54 @@
 <html>
 <head>
   <title>Web Content Classifier</title>
+  <!-- Modern Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     body {
-      font-family: Arial, sans-serif;
-      width: 350px;
-      padding: 10px;
+      font-family: 'Inter', sans-serif;
+      width: 360px;
+      padding: 12px;
+      background-color: #f2f4f8;
     }
-    
+
+    .card {
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 16px;
+    }
+
     h1 {
       font-size: 18px;
       margin-bottom: 15px;
+      color: #333;
     }
-    
+
     button {
       background-color: #4285f4;
       color: white;
       border: none;
-      padding: 8px 16px;
+      padding: 10px 18px;
       font-size: 14px;
-      border-radius: 4px;
+      font-weight: 600;
+      border-radius: 6px;
       cursor: pointer;
-      margin-bottom: 10px;
+      box-shadow: 0 2px 6px rgba(66, 133, 244, 0.4);
+      transition: background-color 0.3s ease, transform 0.1s ease;
+      margin-bottom: 12px;
     }
-    
+
     button:hover {
       background-color: #3367d6;
+      transform: scale(1.02);
     }
-    
+
     #status {
       margin: 10px 0;
       font-style: italic;
-      color: #555;
+      color: #666;
     }
-    
+
     #results {
       margin-top: 15px;
       max-height: 300px;
@@ -42,37 +57,57 @@
       border-top: 1px solid #ddd;
       padding-top: 10px;
     }
-    
-    .result-item {
-      margin-bottom: 10px;
-      padding: 8px;
-      background-color: #f7f7f7;
-      border-radius: 4px;
+
+    #results::-webkit-scrollbar {
+      width: 6px;
     }
-    
+
+    #results::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #results::-webkit-scrollbar-thumb {
+      background-color: #ccc;
+      border-radius: 10px;
+    }
+
+    .result-item {
+      margin-bottom: 12px;
+      padding: 10px;
+      background-color: #fafafa;
+      border-radius: 8px;
+      border: 1px solid #eee;
+      transition: box-shadow 0.2s ease;
+    }
+
+    .result-item:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
     details {
       margin-top: 8px;
     }
-    
+
     summary {
       cursor: pointer;
       color: #4285f4;
       font-weight: bold;
     }
-    
+
     .rag-results {
       margin-top: 8px;
       padding: 8px;
       background-color: #f0f8ff;
       border-left: 4px solid #4285f4;
       font-size: 12px;
+      border-radius: 4px;
     }
-    
+
     .rag-results h3 {
       margin-top: 0;
       font-size: 14px;
     }
-    
+
     pre {
       white-space: pre-wrap;
       word-wrap: break-word;
@@ -84,13 +119,40 @@
       max-height: 200px;
       overflow-y: auto;
     }
+
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      color: #999;
+      margin-top: 16px;
+    }
+    .spinner {
+  margin: 10px auto;
+  width: 30px;
+  height: 30px;
+  border: 4px solid #ddd;
+  border-top: 4px solid #4285f4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  display: none;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
   </style>
 </head>
 <body>
-  <h1>Web Content Classifier</h1>
-  <button id="scrapeButton">Scrape & Process Content</button>
-  <div id="status">Ready to scrape and process with RAG model</div>
-  <div id="results"></div>
+  <div class="card">
+    <h1>Web Content Classifier</h1>
+    <button id="scrapeButton">Scrape & Process Content</button>
+    <div id="status">Ready to scrape and process with RAG model</div>
+    <div id="loader" class="spinner"></div>
+    <div id="results"></div>
+    <div class="footer">v1.0 - Made by TEAM SEAI</div>
+  </div>
   <script src="popup.js"></script>
 </body>
 </html>

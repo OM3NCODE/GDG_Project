@@ -5,31 +5,29 @@ const VIEW_RAG_RESULTS_ENDPOINT = 'http://localhost:8000/view-rag-result/0'; // 
 document.getElementById('scrapeButton').addEventListener('click', () => {
   const statusDiv = document.getElementById('status');
   const resultsDiv = document.getElementById('results');
-  statusDiv.textContent = 'Scraping and processing with RAG model...';
-  
-  // Clear previous results
-  if (resultsDiv) resultsDiv.innerHTML = '';
+  const loader = document.getElementById('loader');
 
-  // Ensure we have an active tab
+  statusDiv.textContent = 'Scraping and processing with RAG model...';
+  if (resultsDiv) resultsDiv.innerHTML = '';
+  if (loader) loader.style.display = 'block';
+
   chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
     if (!tabs[0]) {
       statusDiv.textContent = 'Error: No active tab found';
+      if (loader) loader.style.display = 'none';
       return;
     }
 
-    // Send message to content script
     chrome.tabs.sendMessage(tabs[0].id, {action: 'scrape'}, async (response) => {
-      // Check for runtime errors first
       if (chrome.runtime.lastError) {
         console.error('Error sending message:', chrome.runtime.lastError);
         statusDiv.textContent = 'Error: Could not send message to page';
+        if (loader) loader.style.display = 'none';
         return;
       }
 
-      // Process the response
       if (response && response.paragraphs) {
         try {
-          // Prepare data for API
           const payload = {
             content: [{
               url: response.url,
@@ -38,7 +36,6 @@ document.getElementById('scrapeButton').addEventListener('click', () => {
             }]
           };
 
-          // Send to API
           const apiResponse = await fetch(API_ENDPOINT, {
             method: 'POST',
             headers: {
@@ -47,25 +44,15 @@ document.getElementById('scrapeButton').addEventListener('click', () => {
             body: JSON.stringify(payload)
           });
 
-          // Check API response
-          if (!apiResponse.ok) {
-            throw new Error('API request failed');
-          }
-
+          if (!apiResponse.ok) throw new Error('API request failed');
           const result = await apiResponse.json();
 
-          // Now fetch the RAG results
           const ragResponse = await fetch(VIEW_RAG_RESULTS_ENDPOINT);
-          let ragResult = null;
-          
-          if (ragResponse.ok) {
-            ragResult = await ragResponse.json();
-          }
+          let ragResult = ragResponse.ok ? await ragResponse.json() : null;
 
-          // Update status
           statusDiv.textContent = 'Processing complete!';
-          
-          // Display results
+          if (loader) loader.style.display = 'none';
+
           if (resultsDiv) {
             let resultsHTML = `
               <div class="result-item">
@@ -73,7 +60,7 @@ document.getElementById('scrapeButton').addEventListener('click', () => {
                 <strong>Total Items:</strong> ${result.total_items}<br>
                 <strong>Processed Items:</strong> ${result.processed_items}<br>
             `;
-            
+
             if (ragResult) {
               resultsHTML += `
                 <details>
@@ -85,7 +72,7 @@ document.getElementById('scrapeButton').addEventListener('click', () => {
                 </details>
               `;
             }
-            
+
             resultsHTML += `
                 <details>
                   <summary>View API Endpoints</summary>
@@ -98,7 +85,7 @@ document.getElementById('scrapeButton').addEventListener('click', () => {
                 </details>
               </div>
             `;
-            
+
             resultsDiv.innerHTML = resultsHTML;
           }
 
@@ -108,18 +95,18 @@ document.getElementById('scrapeButton').addEventListener('click', () => {
         } catch (error) {
           console.error('API Error:', error);
           statusDiv.textContent = 'Error processing data with RAG model';
+          if (loader) loader.style.display = 'none';
         }
       } else {
         statusDiv.textContent = 'No content found or error occurred.';
+        if (loader) loader.style.display = 'none';
         console.log('Response:', response);
       }
     });
   });
 });
 
-// Format RAG results for display
 function formatRagResult(result) {
-  // Simple escaping for display in HTML
   if (typeof result === 'string') {
     return result
       .replace(/&/g, '&amp;')
@@ -139,11 +126,12 @@ function formatRagResult(result) {
   }
 }
 
-// Reset status when popup opens
 document.addEventListener('DOMContentLoaded', () => {
   const statusDiv = document.getElementById('status');
   const resultsDiv = document.getElementById('results');
-  
+  const loader = document.getElementById('loader');
+
   if (statusDiv) statusDiv.textContent = 'Ready to scrape and process with RAG model';
   if (resultsDiv) resultsDiv.innerHTML = '';
+  if (loader) loader.style.display = 'none';
 });
