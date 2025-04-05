@@ -108,8 +108,9 @@ def classify_text(input_text):
     
     return response.text.strip()
 
+'''
 # 🎯 Test the Classification
 if __name__ == "__main__":
     test_text = "Minority Sucks dick they should not exsist"
     classification = classify_text(test_text)
-    print(f"📝 Classification Result: {classification}")
+    print(f"📝 Classification Result: {classification}") '''
