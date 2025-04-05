@@ -29,9 +29,9 @@ const PLATFORMS = {
     domain: 'youtube.com',
     selectors: {
       postText: 'yt-formatted-string.ytd-video-secondary-info-renderer, div#description',
-      comments: 'ytd-comment-renderer #content-text',
-      commentAuthor: 'ytd-comment-renderer #author-text',
-      timeFilter: 'yt-formatted-string.ytd-comment-renderer:contains("ago")',
+      comments: 'yt-attributed-string#content-text, #content-text span, ytd-expander #content',
+      commentAuthor: 'div#author-text, #header-author yt-formatted-string',
+      timeFilter: 'span.ytd-comment-renderer-time, yt-formatted-string:contains("ago")',
     }
   }
 };
