@@ -19,47 +19,36 @@ const PLATFORMS = {
   REDDIT: {
     domain: 'reddit.com',
     selectors: {
-      postText: 'div[id*="post-rtjson-content"], div.RichTextJSON-root, div.md',
-      comments: 'div[id*="comment-rtjson-content"], p, blockquote p, div.md',
-      commentAuthor: 'a[href^="/user/"], a[class*="author"]',
-      timeFilter: 'span:contains("ago"), a[class*="age"]',
+      postText: 'div[id*="post-rtjson-content"], div.RichTextJSON-root, div.md, div[data-test-id="post-content"] div',
+      comments: 'div[id*="comment-rtjson-content"], p, blockquote p, div.md, div[class*="text-"], div[data-testid="comment"] div',
+      commentAuthor: 'a[href^="/user/"], a[class*="author"], div[data-testid="comment"] a[data-testid="username"]',
+      timeFilter: 'span:contains("ago"), a[class*="age"], span:contains("minute"), span:contains("hour"), span:contains("day")',
     }
   },
   YOUTUBE: {
     domain: 'youtube.com',
     selectors: {
       postText: 'yt-formatted-string.ytd-video-secondary-info-renderer, div#description',
-      comments: 'yt-attributed-string#content-text, #content-text span, ytd-expander #content',
-      commentAuthor: 'div#author-text, #header-author yt-formatted-string',
+      comments: 'yt-attributed-string#content-text, #content-text span, ytd-expander #content, ytd-comment-renderer #content-text',
+      commentAuthor: 'div#author-text, #header-author yt-formatted-string, ytd-comment-renderer #author-text',
       timeFilter: 'span.ytd-comment-renderer-time, yt-formatted-string:contains("ago")',
     }
   }
 };
 
-/**
- * Removes timestamps, URLs, and unnecessary markup from text
- * @param {string} text - The text to clean
- * @return {string} - Cleaned text
- */
 function cleanText(text) {
   if (!text) return '';
   
   let cleaned = text.replace(/\b\d{1,2}:\d{2}(:\d{2})?\b|\b\d{1,2}(:\d{2})?\s?(am|pm)\b/gi, '')
     .replace(/https?:\/\/\S+/g, '')
-    .replace(/@\w+/g, '') // @mentions
-    .replace(/#\w+/g, '') // #hashtags
+    .replace(/@\w+/g, '')
+    .replace(/#\w+/g, '')
     .replace(/\s+/g, ' ')
     .trim();
     
   return cleaned;
 }
 
-/**
- * Extracts text content from DOM elements matching a selector
- * @param {string} selector - CSS selector
- * @param {boolean} excludeTimestamps - Whether to exclude elements with timestamps
- * @return {Array} - Array of extracted text items
- */
 function extractTextContent(selector, timeFilterSelector = null) {
   const elements = document.querySelectorAll(selector);
   const results = [];
@@ -69,8 +58,12 @@ function extractTextContent(selector, timeFilterSelector = null) {
       return;
     }
     
+    if (timeFilterSelector && element.closest('time')) {
+      return;
+    }
+    
     const text = cleanText(element.textContent);
-    if (text && text.length > 2) { // Only keep text with meaningful content
+    if (text && text.length > 2) {
       results.push(text);
     }
   });
@@ -78,10 +71,104 @@ function extractTextContent(selector, timeFilterSelector = null) {
   return results;
 }
 
-/**
- * Detects the current platform based on URL
- * @return {Object|null} - Platform configuration or null if not recognized
- */
+function instagramCommentScraper() {
+  const results = [];
+  
+  const commentSelectors = [
+    'div.x9f619',
+    'div.xt0psk2',
+    'h3 + div'
+  ];
+  
+  commentSelectors.forEach(selector => {
+    document.querySelectorAll(selector).forEach(container => {
+      const spans = container.querySelectorAll('span._ap3a, span._aaco, span._aacu, span._aacx');
+      
+      spans.forEach(span => {
+        const text = cleanText(span.textContent);
+        if (text && text.length > 2) {
+          results.push(text);
+        }
+      });
+    });
+  });
+  
+  return results;
+}
+
+function instagramPostScraper() {
+  const results = [];
+  
+  document.querySelectorAll('div._a9zr, article, div.xt0psk2, div._ab1t, div._aagw').forEach(post => {
+    const contentElements = post.querySelectorAll('h1, h2, h3, span:not(:has(time)), div._a9zs');
+    
+    let combinedText = '';
+    contentElements.forEach(el => {
+      if (el.textContent && 
+          !el.querySelector('time') && 
+          !el.closest('time') &&
+          el.textContent.trim().length > 2) {
+        
+        const text = cleanText(el.textContent);
+        if (text.length > 0) {
+          results.push(text);
+          combinedText += ' ' + el.textContent;
+        }
+      }
+    });
+    
+    if (combinedText.trim().length > 0) {
+      const cleanCombined = cleanText(combinedText);
+      if (cleanCombined.length > 0 && !results.includes(cleanCombined)) {
+        results.push(cleanCombined);
+      }
+    }
+  });
+  
+  return results;
+}
+
+function extractRedditComments() {
+  const comments = [];
+  
+  document.querySelectorAll('div[id*="comment-rtjson-content"], div.md, blockquote p, div[data-testid="comment"] div, div.RichTextJSON-root').forEach(comment => {
+    if (comment.closest('[aria-hidden="true"]')) return;
+    
+    const text = cleanText(comment.textContent);
+    if (text && text.length > 2) {
+      comments.push(text);
+    }
+  });
+  
+  return comments;
+}
+
+function extractYouTubeComments() {
+  const comments = [];
+  
+  document.querySelectorAll('yt-attributed-string#content-text, #content-text span.yt-core-attributed-string, ytd-comment-renderer #content-text, ytd-expander #content').forEach(comment => {
+    const text = cleanText(comment.textContent);
+    if (text && text.length > 2) {
+      comments.push(text);
+    }
+  });
+  
+  return comments;
+}
+
+function extractTwitterContent() {
+  const contents = [];
+  
+  document.querySelectorAll('article div[data-testid="tweetText"], div[data-testid="card.layoutSmall.detail"]').forEach(tweet => {
+    const text = cleanText(tweet.textContent);
+    if (text.length > 0) {
+      contents.push(text);
+    }
+  });
+  
+  return contents;
+}
+
 function detectPlatform() {
   const url = window.location.href;
   
@@ -98,10 +185,6 @@ function detectPlatform() {
   return null;
 }
 
-/**
- * Main scraping function that collects content based on platform
- * @return {Object} - Object with scraped content
- */
 function scrapeContent() {
   const platform = detectPlatform();
   const scrapedData = {
@@ -123,39 +206,159 @@ function scrapeContent() {
     const selectors = platform.config.selectors;
     const timestamp = new Date().toISOString();
     
-    const mainContentTexts = extractTextContent(selectors.postText, selectors.timeFilter);
+    if (platform.name === 'instagram') {
+      const postContent = instagramPostScraper();
+      
+      postContent.forEach(text => {
+        if (text.length > 0) {
+          scrapedData.formattedData.content.push({
+            url: window.location.href,
+            text: text,
+            timestamp: timestamp,
+            metadata: {
+              type: 'main_content',
+              platform: platform.name
+            }
+          });
+        }
+      });
+      
+      const commentContent = instagramCommentScraper();
+      
+      commentContent.forEach(text => {
+        if (text.length > 0) {
+          scrapedData.formattedData.content.push({
+            url: window.location.href,
+            text: text,
+            timestamp: timestamp,
+            metadata: {
+              type: 'comment',
+              platform: platform.name
+            }
+          });
+        }
+      });
+    } else if (platform.name === 'reddit') {
+      const mainContentTexts = extractTextContent(selectors.postText, selectors.timeFilter);
+      
+      mainContentTexts.forEach(text => {
+        if (text.length > 0) {
+          scrapedData.formattedData.content.push({
+            url: window.location.href,
+            text: text,
+            timestamp: timestamp,
+            metadata: {
+              type: 'main_content',
+              platform: platform.name
+            }
+          });
+        }
+      });
+      
+      const redditComments = extractRedditComments();
+      redditComments.forEach(text => {
+        if (text.length > 0) {
+          scrapedData.formattedData.content.push({
+            url: window.location.href,
+            text: text,
+            timestamp: timestamp,
+            metadata: {
+              type: 'comment',
+              platform: platform.name
+            }
+          });
+        }
+      });
+    } else if (platform.name === 'youtube') {
+      const mainContentTexts = extractTextContent(selectors.postText, selectors.timeFilter);
+      
+      mainContentTexts.forEach(text => {
+        if (text.length > 0) {
+          scrapedData.formattedData.content.push({
+            url: window.location.href,
+            text: text,
+            timestamp: timestamp,
+            metadata: {
+              type: 'main_content',
+              platform: platform.name
+            }
+          });
+        }
+      });
+      
+      const youtubeComments = extractYouTubeComments();
+      youtubeComments.forEach(text => {
+        if (text.length > 0) {
+          scrapedData.formattedData.content.push({
+            url: window.location.href,
+            text: text,
+            timestamp: timestamp,
+            metadata: {
+              type: 'comment',
+              platform: platform.name
+            }
+          });
+        }
+      });
+    } else if (platform.name === 'twitter') {
+      const twitterContent = extractTwitterContent();
+      
+      twitterContent.forEach(text => {
+        if (text.length > 0) {
+          scrapedData.formattedData.content.push({
+            url: window.location.href,
+            text: text,
+            timestamp: timestamp,
+            metadata: {
+              type: 'main_content',
+              platform: platform.name
+            }
+          });
+        }
+      });
+    } else {
+      const mainContentTexts = extractTextContent(selectors.postText, selectors.timeFilter);
+      
+      mainContentTexts.forEach(text => {
+        if (text.length > 0) {
+          scrapedData.formattedData.content.push({
+            url: window.location.href,
+            text: text,
+            timestamp: timestamp,
+            metadata: {
+              type: 'main_content',
+              platform: platform.name
+            }
+          });
+        }
+      });
+      
+      const commentTexts = extractTextContent(selectors.comments, selectors.timeFilter);
+      
+      commentTexts.forEach(text => {
+        if (text.length > 0) {
+          scrapedData.formattedData.content.push({
+            url: window.location.href,
+            text: text,
+            timestamp: timestamp,
+            metadata: {
+              type: 'comment',
+              platform: platform.name
+            }
+          });
+        }
+      });
+    }
     
-    mainContentTexts.forEach(text => {
-      if (text.length > 0) {
-        scrapedData.formattedData.content.push({
-          url: window.location.href,
-          text: text,
-          timestamp: timestamp,
-          metadata: {
-            type: 'main_content',
-            platform: platform.name
-          }
-        });
-      }
-    });
+    scrapedData.debug = {
+      platform: platform.name,
+      url: window.location.href,
+      documentTitle: document.title,
+      contentCount: scrapedData.formattedData.content.length,
+      contentSample: scrapedData.formattedData.content.slice(0, 3).map(item => item.text)
+    };
     
-    const commentTexts = extractTextContent(selectors.comments, selectors.timeFilter);
-    
-    commentTexts.forEach(text => {
-      if (text.length > 0) {
-        scrapedData.formattedData.content.push({
-          url: window.location.href,
-          text: text,
-          timestamp: timestamp,
-          metadata: {
-            type: 'comment',
-            platform: platform.name
-          }
-        });
-      }
-    });
-    
-    scrapedData.success = true;
+    scrapedData.success = scrapedData.formattedData.content.length > 0;
   } catch (error) {
     console.error("Scraping error:", error);
     scrapedData.error = error.message;
@@ -164,10 +367,6 @@ function scrapeContent() {
   return scrapedData;
 }
 
-/**
- * Sends scraped data to the API for processing
- * @param {Object} data - Scraped content data
- */
 async function sendToAPI(data) {
   const API_BASE_URL = 'http://localhost:8000';
   
@@ -227,39 +426,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-function customScrapingStrategy() {
-  const url = window.location.href;
-  const customContent = [];
-  
-  if (url.includes('instagram.com')) {
-    document.querySelectorAll('div._ab1t, div._aagw').forEach(post => {
-      const textElements = post.querySelectorAll('span, div._a9zs');
-      let combinedText = '';
-      
-      textElements.forEach(el => {
-        if (el.textContent && !el.querySelector('time')) {
-          combinedText += ' ' + el.textContent;
-        }
-      });
-      
-      if (combinedText.trim().length > 0) {
-        customContent.push(cleanText(combinedText));
-      }
-    });
-  }
-  
-  if (url.includes('twitter.com') || url.includes('x.com')) {
-    document.querySelectorAll('div[data-testid="card.layoutSmall.detail"]').forEach(quote => {
-      const text = cleanText(quote.textContent);
-      if (text.length > 0) {
-        customContent.push(text);
-      }
-    });
-  }
-  
-  return customContent;
-}
-
 function observeContentChanges() {
   const platform = detectPlatform();
   if (!platform) return;
@@ -277,4 +443,18 @@ function observeContentChanges() {
 }
 observeContentChanges();
 
-console.log("Content scraper loaded for: ", detectPlatform()?.name || "unsupported platform");
+function debugDOMElements() {
+  const platform = detectPlatform();
+  console.log("Current platform:", platform?.name);
+  
+  if (platform?.name === 'instagram') {
+    console.log("Instagram debugging info:");
+    console.log("- xt0psk2 elements:", document.querySelectorAll('div.xt0psk2').length);
+    console.log("- _a9zr elements:", document.querySelectorAll('div._a9zr').length);
+    console.log("- _ap3a spans:", document.querySelectorAll('span._ap3a').length);
+    console.log("- x9f619 elements:", document.querySelectorAll('div.x9f619').length);
+  }
+}
+debugDOMElements();
+
+console.log("Content scraper loaded for:", detectPlatform()?.name || "unsupported platform");
