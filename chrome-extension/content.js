@@ -2,10 +2,10 @@ const PLATFORMS = {
   INSTAGRAM: {
     domain: 'instagram.com',
     selectors: {
-      postText: 'div._a9zs, div._a9z6, div._ab5z',
-      comments: 'ul.x9f619 div._a9zs',
-      commentAuthor: 'span._aap6, span._aacl',
-      timeFilter: 'time._aaqe',
+      postText: 'div._a9zr h1, div._a9zr h2, div._a9zr span, h1._ap3a, div._a9zs, div._a9z6, div._ab5z',
+      comments: 'div.xt0psk2 span, span._ap3a, div._a9zr span._ap3a, div.x9f619 span, ul div._a9zr span',
+      commentAuthor: 'span._aap6, span._aacl, div._aaqf',
+      timeFilter: 'time._aaqe, time, span:contains("h"), span:contains("d"), span:contains("w")',
     }
   },
   TWITTER: {
@@ -19,10 +19,10 @@ const PLATFORMS = {
   REDDIT: {
     domain: 'reddit.com',
     selectors: {
-      postText: 'div[data-test-id="post-content"] div, div.RichTextJSON-root',
-      comments: 'div[data-testid="comment"] div, div.RichTextJSON-root',
-      commentAuthor: 'div[data-testid="comment"] a[data-testid="username"]',
-      timeFilter: 'span:contains("ago"), span:contains("minute"), span:contains("hour"), span:contains("day")',
+      postText: 'div[id*="post-rtjson-content"], div.RichTextJSON-root, div.md',
+      comments: 'div[id*="comment-rtjson-content"], p, blockquote p, div.md',
+      commentAuthor: 'a[href^="/user/"], a[class*="author"]',
+      timeFilter: 'span:contains("ago"), a[class*="age"]',
     }
   },
   YOUTUBE: {
