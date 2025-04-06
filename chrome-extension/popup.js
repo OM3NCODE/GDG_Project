@@ -187,6 +187,7 @@ function displayClassificationResults(results) {
           action: 'blurText',
           result: classificationResults
         });
+      
       });
     });
   

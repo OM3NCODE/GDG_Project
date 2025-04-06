@@ -229,27 +229,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendToAPI(scrapedData);
     }
     
-    return true; 
+    return ; 
   }
 
+  //Blur Feature In Development
   if (message.action === 'blurText') {
     const result = message.result;
     console.log("Received result to blur:", result);
-
-    if (result && (result.label === "Hate Speech" || result.target === "Hate Speech")) {
+  
+    if (result && result.processed_result_preview === "Hate Speech") {
       const matchingElements = Array.from(document.querySelectorAll("*")).filter(el =>
         el.children.length === 0 &&
-        el.textContent.trim().toLowerCase().includes(result.text.trim().toLowerCase())
+        el.textContent.trim().toLowerCase().includes(message.originalText.trim().toLowerCase())
       );
-
+  
       matchingElements.forEach(el => {
         blurElementIfNeeded(el, "Hate Speech");
       });
     }
-
-    return true;
   }
-});
+  }
+);
 
 function customScrapingStrategy() {
   const url = window.location.href;
@@ -301,20 +301,13 @@ function observeContentChanges() {
 }
 
 observeContentChanges();
-
-function blurElementIfNeeded(element, label) {
-  if (result === "Hate Speech") {
-      element.style.filter = "blur(5px)";
-      element.style.cursor = "pointer";
-      element.title = "Blurred due to classified hate speech";
-
-      element.addEventListener("mouseenter", () => {
-          element.style.filter = "none";
-      });
-      element.addEventListener("mouseleave", () => {
-          element.style.filter = "blur(5px)";
-      });
+//Blur Feature In Development
+function blurElementIfNeeded(el, reason) {
+  if (!el.classList.contains("blurred")) {
+    el.style.filter = "blur(5px)";
+    el.style.transition = "filter 0.3s ease";
+    el.setAttribute("title", `Blurred for: ${reason}`);
+    el.classList.add("blurred");
   }
 }
-
 console.log("Content scraper loaded for: ", detectPlatform()?.name || "unsupported platform");
