@@ -23,6 +23,7 @@ const PLATFORMS = {
   YOUTUBE: {
     domain: 'youtube.com',
     selectors: {
+      postText: 'ytd-text-inline-expander',
       comments: 'ytd-comment-thread-renderer #content-text',
     }
   }
