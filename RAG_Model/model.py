@@ -98,7 +98,7 @@ def classify_text(input_text):
     
     # ✅ Prompt for Classification
     prompt = f"""
-    As an AI content moderator, classify the following {content_type} as 'Hate Speech', 'Moderate', or 'Safe'.
+    As an AI content moderator, classify the following as 'Hate Speech', 'Moderate', or 'Safe'.
     
     Guidelines:
     - 'Hate Speech': Content that attacks, threatens, or demeans a person or group based on identity
@@ -108,9 +108,9 @@ def classify_text(input_text):
     For short comments, pay careful attention to slurs, threats, or derogatory language even in brief text.
     
     Retrieved similar examples with their classifications:
-    {examples_string}
+    {retrieved_texts}
     
-    Text to classify ({content_type}):
+    Text to classify :
     "{input_text}"
     
     Respond with exactly one label: 'Hate Speech', 'Moderate', or 'Safe'
