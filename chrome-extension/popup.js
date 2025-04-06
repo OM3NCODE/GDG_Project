@@ -13,7 +13,7 @@ const safeCount = document.getElementById('safeCount');
 const tabs = document.querySelectorAll('.tab');
 const tabContents = document.querySelectorAll('.tab-content');
 
-// State variables
+// State variables  
 let scrapedData = null;
 let classificationResults = null;
 
@@ -157,8 +157,7 @@ function displayClassificationResults(results) {
         classType = 'safe';
         safeTotal++;
       }
-      
-      // Create result element
+
       const resultElement = document.createElement('div');
       resultElement.className = `content-item ${classType}`;
       
@@ -182,8 +181,18 @@ function displayClassificationResults(results) {
       resultElement.appendChild(classificationElement);
       
       contentContainer.appendChild(resultElement);
-    });
     
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          action: 'blurHateSpeech',
+          payload: {
+            text: result.original_text,
+            classType: classType
+          }
+        });
+      });
+    });
+  
     // Update summary counts
     hateSpeechCount.textContent = hateSpeechTotal;
     moderateCount.textContent = moderateTotal;

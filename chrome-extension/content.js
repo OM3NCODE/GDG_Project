@@ -193,6 +193,20 @@ async function sendToAPI(data) {
       action: 'resultsReady',
       results: classificationResults
     });
+
+    classificationResults.results?.forEach(result => {
+      if (result.label === "Hate Speech") {
+        const matchingElements = Array.from(document.querySelectorAll("*"))
+          .filter(el =>
+            el.children.length === 0 &&
+            el.textContent.includes(result.text)
+          );
+    
+        matchingElements.forEach(el => {
+          blurElementIfNeeded(el, "Hate Speech");
+        });
+      }
+    });
     
   } catch (error) {
     console.error("API error:", error);
@@ -268,5 +282,20 @@ function observeContentChanges() {
 }
 
 observeContentChanges();
+
+function blurElementIfNeeded(element, label) {
+  if (label === "Hate Speech") {
+      element.style.filter = "blur(5px)";
+      element.style.cursor = "pointer";
+      element.title = "Blurred due to classified hate speech";
+
+      element.addEventListener("mouseenter", () => {
+          element.style.filter = "none";
+      });
+      element.addEventListener("mouseleave", () => {
+          element.style.filter = "blur(5px)";
+      });
+  }
+}
 
 console.log("Content scraper loaded for: ", detectPlatform()?.name || "unsupported platform");

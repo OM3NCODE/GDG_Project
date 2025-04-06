@@ -145,6 +145,19 @@ async def view_specific_scrape(index: int):
         "metadata": content.metadata
     }
 
+@app.post("/classify")
+async def classify_single_text(request: dict):
+    text = request.get("text", "")
+    if not text:
+        raise HTTPException(status_code=400, detail="Text is required")
+
+    try:
+        result = classify_text(text)
+        return {"processed_result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/health")
 async def health_check():
     """Basic API health check."""
