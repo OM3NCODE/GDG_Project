@@ -111,6 +111,6 @@ def classify_text(input_text):
 '''
 # 🎯 Test the Classification
 if __name__ == "__main__":
-    test_text = "Minority Sucks dick they should not exsist"
+    test_text = "Log Chuitye Hai"
     classification = classify_text(test_text)
     print(f"📝 Classification Result: {classification}") '''
