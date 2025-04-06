@@ -193,9 +193,10 @@ async function sendToAPI(data) {
       action: 'resultsReady',
       results: classificationResults
     });
+    console.log(classificationResults);
 
     classificationResults.results?.forEach(result => {
-      if (result.label === "Hate Speech") {
+      if (result === "Hate Speech") {
         const matchingElements = Array.from(document.querySelectorAll("*"))
           .filter(el =>
             el.children.length === 0 &&
