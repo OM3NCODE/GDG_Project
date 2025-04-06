@@ -231,6 +231,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     return true; 
   }
+
+  if (message.action === 'blurText') {
+    const result = message.result;
+    console.log("Received result to blur:", result);
+
+    if (result && (result.label === "Hate Speech" || result.target === "Hate Speech")) {
+      const matchingElements = Array.from(document.querySelectorAll("*")).filter(el =>
+        el.children.length === 0 &&
+        el.textContent.trim().toLowerCase().includes(result.text.trim().toLowerCase())
+      );
+
+      matchingElements.forEach(el => {
+        blurElementIfNeeded(el, "Hate Speech");
+      });
+    }
+
+    return true;
+  }
 });
 
 function customScrapingStrategy() {
