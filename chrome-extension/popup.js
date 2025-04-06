@@ -183,12 +183,9 @@ function displayClassificationResults(results) {
       contentContainer.appendChild(resultElement);
     
       chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-        chrome.tabs.sendMessage(tabs[0].id, {
-          action: 'blurHateSpeech',
-          payload: {
-            text: result.original_text,
-            classType: classType
-          }
+        chrome.tabs.sendMessage(tabs[0].id, {    
+          action: 'blurText',
+          result: classificationResults
         });
       });
     });

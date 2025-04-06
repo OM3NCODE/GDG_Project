@@ -303,7 +303,7 @@ function observeContentChanges() {
 observeContentChanges();
 
 function blurElementIfNeeded(element, label) {
-  if (label === "Hate Speech") {
+  if (result === "Hate Speech") {
       element.style.filter = "blur(5px)";
       element.style.cursor = "pointer";
       element.title = "Blurred due to classified hate speech";

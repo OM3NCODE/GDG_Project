@@ -157,7 +157,6 @@ async def classify_single_text(request: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.get("/health")
 async def health_check():
     """Basic API health check."""
