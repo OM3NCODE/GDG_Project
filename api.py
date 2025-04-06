@@ -6,10 +6,8 @@ from datetime import datetime
 import os
 import sys
 
-# Add the RAG Model directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), "RAG_Model"))
 
-# Import the RAG model
 from RAG_Model.model import classify_text # Assuming this is the function in your model.py
 
 app = FastAPI(
@@ -17,7 +15,6 @@ app = FastAPI(
     description="API for processing scraped web content with a RAG model"
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins during development
@@ -41,7 +38,6 @@ class RAGResponse(BaseModel):
     processed_result: str
     timestamp: datetime
 
-# Global variable to store scraped content (for testing purposes)
 scraped_contents = []
 rag_results = []
 
@@ -51,22 +47,15 @@ async def receive_scraped_content(request: ScrapedContentRequest):
     Endpoint to receive scraped web content, process it with the RAG model,
     and store both the original content and the processed results.
     """
-    # Clear previous contents
     global scraped_contents, rag_results
     scraped_contents = []
     rag_results = []
     
-    # Process each content item with the RAG model
     for content in request.content:
         # Store original content
         scraped_contents.append(content)
-        
-        # Process with RAG model
         try:
-            # Call your RAG model function
             processed_result = classify_text(content.text)
-            
-            # Store the result
             rag_result = RAGResponse(
                 url=content.url,
                 original_text=content.text,
@@ -76,7 +65,6 @@ async def receive_scraped_content(request: ScrapedContentRequest):
             rag_results.append(rag_result)
             
         except Exception as e:
-            # Log the error but continue processing other items
             print(f"Error processing content from {content.url}: {str(e)}")
     
     return {
@@ -124,6 +112,23 @@ async def view_rag_results():
         ]
     }
 
+@app.get("/view-rag-result/{index}")
+async def view_specific_rag_result(index: int):
+    """
+    Endpoint to view a specific RAG result by index.
+    """
+    if index < 0 or index >= len(rag_results):
+        raise HTTPException(status_code=404, detail="RAG result not found")
+    
+    result = rag_results[index]
+    return {
+        "url": result.url,
+        "original_text": result.original_text,
+        "processed_result": result.processed_result,
+        "timestamp": result.timestamp
+    }
+
+
 @app.get("/view-scrape/{index}")
 async def view_specific_scrape(index: int):
     """
@@ -140,21 +145,17 @@ async def view_specific_scrape(index: int):
         "metadata": content.metadata
     }
 
-@app.get("/view-rag-result/{index}")
-async def view_specific_rag_result(index: int):
-    """
-    Endpoint to view a specific RAG result by index.
-    """
-    if index < 0 or index >= len(rag_results):
-        raise HTTPException(status_code=404, detail="RAG result not found")
-    
-    result = rag_results[index]
-    return {
-        "url": result.url,
-        "original_text": result.original_text,
-        "processed_result": result.processed_result,
-        "timestamp": result.timestamp
-    }
+@app.post("/classify")
+async def classify_single_text(request: dict):
+    text = request.get("text", "")
+    if not text:
+        raise HTTPException(status_code=400, detail="Text is required")
+
+    try:
+        result = classify_text(text)
+        return {"processed_result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 async def health_check():

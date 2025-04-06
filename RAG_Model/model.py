@@ -80,6 +80,7 @@ def classify_text(input_text):
     embedding_response = genai.embed_content(model="models/text-embedding-004", content=input_text)
     input_embedding = embedding_response["embedding"]
     
+    
     if len(input_embedding) != 768:
         raise ValueError(f"❌ Expected query embedding dimension 768, but got {len(input_embedding)}")
     
@@ -97,11 +98,24 @@ def classify_text(input_text):
     
     # ✅ Prompt for Classification
     prompt = f"""
-    Given the retrieved examples: {retrieved_texts}
-    Classify the following text as 'Hate Speech', 'Moderate', or 'Safe':  
+    As an AI content moderator, classify the following {content_type} as 'Hate Speech', 'Moderate', or 'Safe'.
+    
+    Guidelines:
+    - 'Hate Speech': Content that attacks, threatens, or demeans a person or group based on identity
+    - 'Moderate': Content that is potentially offensive but doesn't rise to hate speech
+    - 'Safe': Content that is neutral or positive
+    
+    For short comments, pay careful attention to slurs, threats, or derogatory language even in brief text.
+    
+    Retrieved similar examples with their classifications:
+    {examples_string}
+    
+    Text to classify ({content_type}):
     "{input_text}"
-    Respond with only one label.
+    
+    Respond with exactly one label: 'Hate Speech', 'Moderate', or 'Safe'
     """
+    
     
     model = genai.GenerativeModel("gemini-1.5-pro")
     response = model.generate_content(prompt)
